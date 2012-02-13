@@ -1,0 +1,27 @@
+#!/bin/bash
+
+SERVICE_STATE=$1
+SERVICE_STATE_TYPE=$2
+SERVICE_ATTEMPT=$3
+USER_PATH=$4
+echo "$SERVICE_STATE"
+echo "$SERVICE_STATE_TYPE"
+echo "$SERVICE_ATTEMPT"
+echo "$USER_PATH"
+
+if [ $SERVICE_STATE == "OK" ]
+then
+	echo "State = OK, returning..."
+	exit 0
+fi
+
+MCONF_TYPE=$5
+MCONF_HOST=$6
+echo "$MCONF_TYPE"
+echo "$MCONF_HOST"
+
+/usr/bin/python $USER_PATH/nagios-hosts/nagios-hosts.py add $MCONF_TYPE $MCONF_HOST &> ~/output
+
+now=`date +%s`
+commandfile='/usr/local/nagios/var/rw/nagios.cmd'
+/usr/bin/printf "[%lu] PROCESS_SERVICE_CHECK_RESULT;localhost;Server UP;0;OK- new server handled\n" $now > $commandfile
