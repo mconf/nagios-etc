@@ -2,19 +2,16 @@
 
 import os, sys, inspect, json
 cmd_folder = os.path.abspath(os.path.split(inspect.getfile( inspect.currentframe() ))[0])
-sys.path.append(cmd_folder + "/lib")
-#cmd_folder += "/lib"
-#sys.path.append(cmd_folder)
 from pynag import Model
 from pynag.Parsers import config
 
-_DEBUG = False
+_DEBUG = True
 
 if _DEBUG:
-    hosts_cfg = 'hosts.cfg'
-    nagios_cfg = 'nagios.cfg'
+    hosts_cfg = '/home/felipe/codes/nagios-hosts/usr/local/nagios/etc/objects/mconf/hosts.cfg'
+    hosts_cfg = '/home/felipe/codes/nagios-hosts/usr/local/nagios/etc/nagios.cfg'
 else:
-    hosts_cfg = '/usr/local/nagios/etc/objects/hosts.cfg'
+    hosts_cfg = '/usr/local/nagios/etc/objects/mconf/hosts.cfg'
     nagios_cfg = '/usr/local/nagios/etc/nagios.cfg'
 
 def print_usage():
@@ -54,6 +51,15 @@ def reload(forced=False):
     last_modified_file.write("%d\n" % last_modified)
     last_modified_file.close()
 
+def get_nagios_data():
+    nc = config(nagios_cfg)
+    nc.parse()
+    # crash if there's no data on nc.data
+    if len(nc.data) == 0:
+        nc.data = { 'all_host' : [], 'all_hostgroup' : [] }
+    #print json.dumps(nc.data)
+    return nc
+
 def add(server_type, ip):
     server_type = server_type.lower()
     if server_type == 'bigbluebutton':
@@ -66,16 +72,16 @@ def add(server_type, ip):
         print 'Invalid server type'
         return
         
-    nc = config(nagios_cfg)
-    nc.parse()
-#    print json.dumps(nc.data)
+    nc = get_nagios_data()
     if nc.get_host(ip) != None:
         print "Host is already there"
         return
  
+    #host_name = "%s %s" % (server_type, ip)
+    host_name = ip
     new_host = nc.get_new_item('host', hosts_cfg)
     new_host['use'] = 'generic-passive-host'
-    new_host['host_name'] = ip
+    new_host['host_name'] = host_name
     new_host['address'] = ip
     new_host['meta']['needs_commit'] = True
     nc.data['all_host'].append(new_host)
@@ -85,38 +91,38 @@ def add(server_type, ip):
         hostgroup = nc.get_new_item('hostgroup', hosts_cfg)
         hostgroup['hostgroup_name'] = hostgroup_name
         hostgroup['alias'] = alias
-        hostgroup['members'] = ip
+        hostgroup['members'] = ''
+        nc.data['all_hostgroup'].append(hostgroup)
         
         allservers_hostgroup = nc.get_hostgroup('all-servers')
         if allservers_hostgroup == None:
             allservers_hostgroup = nc.get_new_item('hostgroup', hosts_cfg)
             allservers_hostgroup['hostgroup_name'] = 'all-servers'
             allservers_hostgroup['alias'] = 'All servers'
-            allservers_hostgroup['members'] = hostgroup_name
-        else:
-            if len(allservers_hostgroup['members']) == 0:
-                members = []
-            else:
-                members = allservers_hostgroup['members'].split(',')
-            members.append(host_name)
-            allservers_hostgroup['members'] = ','.join(members)
-        allservers_hostgroup['meta']['needs_commit'] = True
-    else:
-        if len(hostgroup['members']) == 0:
+            allservers_hostgroup['members'] = ''
+            nc.data['all_hostgroup'].append(allservers_hostgroup)
+
+        if len(allservers_hostgroup['members']) == 0:
             members = []
         else:
-            members = hostgroup['members'].split(',')
-        members.append(ip)
-        hostgroup['members'] = ','.join(members)
-    hostgroup['meta']['needs_commit'] = True
+            members = allservers_hostgroup['members'].split(',')
+        members.append(hostgroup_name)
+        allservers_hostgroup['members'] = ','.join(members)
+        allservers_hostgroup['meta']['needs_commit'] = True
 
+    if len(hostgroup['members']) == 0:
+        members = []
+    else:
+        members = hostgroup['members'].split(',')
+    members.append(host_name)
+    hostgroup['members'] = ','.join(members)
+    hostgroup['meta']['needs_commit'] = True
+    
     nc.commit()
     return
     
 def remove(ip):
-    nc = config(nagios_cfg)
-    nc.parse()
-#    print json.dumps(nc.data)
+    nc = get_nagios_data()
     host = nc.get_host(ip)
     if host == None:
         print "Cannot find the host specified"
