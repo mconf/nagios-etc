@@ -8,8 +8,8 @@ from pynag.Parsers import config
 _DEBUG = False
 
 if _DEBUG:
-    hosts_cfg = '/home/felipe/codes/nagios-hosts/usr/local/nagios/etc/objects/mconf/hosts.cfg'
-    hosts_cfg = '/home/felipe/codes/nagios-hosts/usr/local/nagios/etc/nagios.cfg'
+    hosts_cfg = '/home/felipe/codes/nagios-hosts/etc/objects/mconf/hosts.cfg'
+    nagios_cfg = '/home/felipe/codes/nagios-hosts/etc/nagios.cfg'
 else:
     hosts_cfg = '/usr/local/nagios/etc/objects/mconf/hosts.cfg'
     nagios_cfg = '/usr/local/nagios/etc/nagios.cfg'
