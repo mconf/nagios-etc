@@ -5,7 +5,7 @@ cmd_folder = os.path.abspath(os.path.split(inspect.getfile( inspect.currentframe
 from pynag import Model
 from pynag.Parsers import config
 
-_DEBUG = False
+_DEBUG = True
 
 if _DEBUG:
     hosts_cfg = '/home/felipe/codes/nagios-hosts/etc/objects/mconf/hosts.cfg'
@@ -99,15 +99,16 @@ def add(server_type, ip):
             allservers_hostgroup = nc.get_new_item('hostgroup', hosts_cfg)
             allservers_hostgroup['hostgroup_name'] = 'all-servers'
             allservers_hostgroup['alias'] = 'All servers'
-            allservers_hostgroup['members'] = ''
+            allservers_hostgroup['members'] = 'localhost'
+            allservers_hostgroup['hostgroup_members'] = ''
             nc.data['all_hostgroup'].append(allservers_hostgroup)
 
-        if len(allservers_hostgroup['members']) == 0:
+        if len(allservers_hostgroup['hostgroup_members']) == 0:
             members = []
         else:
-            members = allservers_hostgroup['members'].split(',')
+            members = allservers_hostgroup['hostgroup_members'].split(',')
         members.append(hostgroup_name)
-        allservers_hostgroup['members'] = ','.join(members)
+        allservers_hostgroup['hostgroup_members'] = ','.join(members)
         allservers_hostgroup['meta']['needs_commit'] = True
 
     if len(hostgroup['members']) == 0:
@@ -120,6 +121,22 @@ def add(server_type, ip):
     
     nc.commit()
     return
+    
+def remove_group(nc, alias):
+    for hostgroup in nc.data['all_hostgroup']:
+        if not hostgroup.has_key('hostgroup_members') or hostgroup.has_key('members'):
+            continue
+        hostgroup_members = hostgroup['hostgroup_members'].split(',')
+        if alias in hostgroup_members:
+            hostgroup_members = [x for x in hostgroup_members if x != alias]
+            hostgroup['meta']['needs_commit'] = True
+            if len(hostgroup_members) == 0:
+                hostgroup['hostgroup_members'] = None
+                hostgroup['meta']['delete_me'] = True
+                remove_group(nc, hostgroup['alias'])
+            else:
+                hostgroup['hostgroup_members'] = ','.join(hostgroup_members)
+            hostgroup['meta']['needs_commit'] = True
     
 def remove(ip):
     nc = get_nagios_data()
@@ -138,7 +155,11 @@ def remove(ip):
         members = hostgroup['members'].split(',')
         if ip in members:           
             members = [x for x in members if x != ip]
-            hostgroup['members'] = ','.join(members)
+            if len(members) == 0:
+                del hostgroup['members']
+                remove_group(nc, hostgroup['alias'])
+            else:
+                hostgroup['members'] = ','.join(members)
             hostgroup['meta']['needs_commit'] = True
     
     nc.commit()
