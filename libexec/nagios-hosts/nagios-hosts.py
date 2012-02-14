@@ -8,8 +8,8 @@ from pynag.Parsers import config
 _DEBUG = True
 
 if _DEBUG:
-    hosts_cfg = '/home/felipe/codes/nagios-hosts/etc/objects/mconf/hosts.cfg'
-    nagios_cfg = '/home/felipe/codes/nagios-hosts/etc/nagios.cfg'
+    hosts_cfg = '/home/felipe/codes/nagios-etc/etc/objects/mconf/hosts.cfg'
+    nagios_cfg = '/home/felipe/codes/nagios-etc/etc/nagios.cfg'
 else:
     hosts_cfg = '/usr/local/nagios/etc/objects/mconf/hosts.cfg'
     nagios_cfg = '/usr/local/nagios/etc/nagios.cfg'
@@ -55,9 +55,12 @@ def get_nagios_data():
     nc = config(nagios_cfg)
     nc.parse()
     # crash if there's no data on nc.data
-    if len(nc.data) == 0:
-        nc.data = { 'all_host' : [], 'all_hostgroup' : [] }
-    #print json.dumps(nc.data)
+    if nc.data == None:
+	nc.data = {}
+    if not nc.data.has_key('all_host'):
+	nc.data['all_host'] = []
+    if not nc.data.has_key('all_hostgroup'):
+        nc.data['all_hostgroup'] = []
     return nc
 
 def add(server_type, ip):
@@ -102,45 +105,55 @@ def add(server_type, ip):
             allservers_hostgroup['members'] = 'localhost'
             allservers_hostgroup['hostgroup_members'] = ''
             nc.data['all_hostgroup'].append(allservers_hostgroup)
-
-        if len(allservers_hostgroup['hostgroup_members']) == 0:
-            members = []
-        else:
-            members = allservers_hostgroup['hostgroup_members'].split(',')
-        members.append(hostgroup_name)
-        allservers_hostgroup['hostgroup_members'] = ','.join(members)
+        if not allservers_hostgroup.has_key('hostgroup_members'):
+            allservers_hostgroup['hostgroup_members'] = ''
+        allservers_hostgroup['hostgroup_members'] = add_member(allservers_hostgroup['hostgroup_members'], hostgroup_name)
         allservers_hostgroup['meta']['needs_commit'] = True
-
-    if len(hostgroup['members']) == 0:
-        members = []
-    else:
-        members = hostgroup['members'].split(',')
-    members.append(host_name)
-    hostgroup['members'] = ','.join(members)
+    hostgroup['members'] = add_member(hostgroup['members'], host_name)
     hostgroup['meta']['needs_commit'] = True
     
     nc.commit()
     return
     
-def remove_group(nc, alias):
+def remove_group(nc, hostgroup_name):
     for hostgroup in nc.data['all_hostgroup']:
-        if not hostgroup.has_key('hostgroup_members') or hostgroup.has_key('members'):
-            continue
-        hostgroup_members = hostgroup['hostgroup_members'].split(',')
-        if alias in hostgroup_members:
-            hostgroup_members = [x for x in hostgroup_members if x != alias]
+
+        if hostgroup['hostgroup_name'] == hostgroup_name:
+            hostgroup['meta']['delete_me'] = True
             hostgroup['meta']['needs_commit'] = True
-            if len(hostgroup_members) == 0:
-                hostgroup['hostgroup_members'] = None
-                hostgroup['meta']['delete_me'] = True
-                remove_group(nc, hostgroup['alias'])
-            else:
-                hostgroup['hostgroup_members'] = ','.join(hostgroup_members)
-            hostgroup['meta']['needs_commit'] = True
+        else:
+            if not hostgroup.has_key('hostgroup_members'):
+                continue
+            if has_member(hostgroup['hostgroup_members'], hostgroup_name):
+                hostgroup['hostgroup_members'] = remove_member(hostgroup['hostgroup_members'], hostgroup_name)
+                hostgroup['meta']['needs_commit'] = True
+            if len(hostgroup['hostgroup_members']) == 0:
+                del hostgroup['hostgroup_members']
+                if not hostgroup.has_key('members'):
+                    remove_group(nc, hostgroup['hostgroup_name'])
     
-def remove(ip):
+def add_member(members, new_member):
+    if len(members) == 0:
+        return new_member
+    else:
+        members = members.split(',')
+        members.append(new_member)
+        return ','.join(members)
+
+def remove_member(members, member_to_remove):
+    if len(members) == 0:
+        return ''
+    members = members.split(',')
+    if member_to_remove in members:
+        members = [x for x in members if x != member_to_remove]
+    return ','.join(members)
+
+def has_member(members, member_to_test):
+    return len(members) != len(remove_member(members, member_to_test))
+
+def remove_host(host_name):
     nc = get_nagios_data()
-    host = nc.get_host(ip)
+    host = nc.get_host(host_name)
     if host == None:
         print "Cannot find the host specified"
         return
@@ -151,17 +164,14 @@ def remove(ip):
     for hostgroup in nc.data['all_hostgroup']:
         if not hostgroup.has_key('members'):
             continue
-            
-        members = hostgroup['members'].split(',')
-        if ip in members:           
-            members = [x for x in members if x != ip]
-            if len(members) == 0:
-                del hostgroup['members']
-                remove_group(nc, hostgroup['alias'])
-            else:
-                hostgroup['members'] = ','.join(members)
+
+        if has_member(hostgroup['members'], host_name):
+            hostgroup['members'] = remove_member(hostgroup['members'], host_name)
             hostgroup['meta']['needs_commit'] = True
-    
+            if len(hostgroup['members']) == 0:
+                del hostgroup['members']
+                remove_group(nc, hostgroup['hostgroup_name'])
+
     nc.commit()
     return
 
@@ -179,7 +189,7 @@ elif sys.argv[1] == "remove":
     if len(sys.argv) != 3:
         print_usage()
     else:
-        remove(sys.argv[2])
+        remove_host(sys.argv[2])
 elif sys.argv[1] == "force-reload":
     reload(True)
 else:
