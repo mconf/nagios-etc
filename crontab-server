@@ -1,0 +1,5 @@
+#min hour day month weekday command
+# run every minute to reload the nagios configuration when there's any modification on hosts definition file
+*/1   *    *    *      *    /usr/bin/python /usr/local/nagios/libexec/nagios-hosts/nagios-hosts.py reload
+
+

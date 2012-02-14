@@ -1,0 +1,30 @@
+#!/bin/bash
+
+function print_usage
+{
+	echo "Usage:"
+	echo "    ./serverup bigbluebutton"
+	echo "    ./serverup freeswitch"
+	exit 1
+}
+
+if [ $# -ne 1 ]
+then
+	print_usage
+fi
+
+if [ $1 != "bigbluebutton" ] && [ $1 != "freeswitch" ]
+then
+	print_usage
+fi
+
+HOST=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+DESTINATION=143.54.12.174
+SEND_NSCA_DIR=/usr/local/nagios/bin
+SEND_NSCA_CFG_DIR=/usr/local/nagios/etc
+SERVICE="Server UP"
+MESSAGE="$1 $HOST"
+STATE=3
+
+/usr/bin/printf "%s\t%s\t%s\t%s\n" "localhost" "$SERVICE" "$STATE" "$MESSAGE" | $SEND_NSCA_DIR/send_nsca -H $DESTINATION -c $SEND_NSCA_CFG_DIR/send_nsca.cfg
+

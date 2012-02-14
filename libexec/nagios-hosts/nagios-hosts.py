@@ -5,7 +5,7 @@ cmd_folder = os.path.abspath(os.path.split(inspect.getfile( inspect.currentframe
 from pynag import Model
 from pynag.Parsers import config
 
-_DEBUG = True
+_DEBUG = False
 
 if _DEBUG:
     hosts_cfg = '/home/felipe/codes/nagios-etc/etc/objects/mconf/hosts.cfg'
