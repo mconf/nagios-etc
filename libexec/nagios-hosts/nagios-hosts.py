@@ -4,6 +4,7 @@ import os, sys, inspect, json
 cmd_folder = os.path.abspath(os.path.split(inspect.getfile( inspect.currentframe() ))[0])
 from pynag import Model
 from pynag.Parsers import config
+from urlparse import urlparse
 
 _DEBUG = False
 
@@ -16,7 +17,7 @@ else:
 
 def print_usage():
     print "Usage:"
-    print "   add <FreeSWITCH|BigBlueButton> <IP>"
+    print "   add <freeswitch|bigbluebutton> <HOST> [<SALT>]"
     print "   remove <IP>"
     print "   reload"
     print "   force-reload"
@@ -63,14 +64,16 @@ def get_nagios_data():
         nc.data['all_hostgroup'] = []
     return nc
 
-def add(server_type, ip):
+def add(server_type, host, salt=''):
     server_type = server_type.lower()
     if server_type == 'bigbluebutton':
         hostgroup_name = 'bigbluebutton-servers'
         alias = 'BigBlueButton servers'
+        ip = urlparse(host).hostname
     elif server_type == 'freeswitch':
         hostgroup_name = 'freeswitch-servers'
         alias = 'FreeSWITCH servers'
+        ip = host
     else:
         print 'Invalid server type'
         return
@@ -85,8 +88,11 @@ def add(server_type, ip):
     new_host = nc.get_new_item('host', hosts_cfg)
     new_host['use'] = 'generic-passive-host'
     new_host['host_name'] = host_name
-    new_host['address'] = ip
+    new_host['address'] = host_name
     new_host['meta']['needs_commit'] = True
+    if server_type == 'bigbluebutton':
+        new_host['_bbb_url'] = host
+        new_host['_bbb_salt'] = salt
     nc.data['all_host'].append(new_host)
 
     hostgroup = nc.get_hostgroup(hostgroup_name)
@@ -181,10 +187,16 @@ if len(sys.argv) == 1:
 if sys.argv[1] == "reload":
     reload()
 elif sys.argv[1] == "add":
-    if len(sys.argv) != 4:
+    if len(sys.argv) < 4:
         print_usage()
     else:
-        add(sys.argv[2], sys.argv[3])
+        if sys.argv[2] == 'bigbluebutton':
+            if len(sys.argv) != 5:
+                print_usage()
+            else:
+                add(sys.argv[2], sys.argv[3], sys.argv[4])
+        else:
+            add(sys.argv[2], sys.argv[3])
 elif sys.argv[1] == "remove":
     if len(sys.argv) != 3:
         print_usage()

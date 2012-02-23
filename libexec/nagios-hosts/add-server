@@ -17,10 +17,19 @@ fi
 
 MCONF_TYPE=$5
 MCONF_HOST=$6
-echo "$MCONF_TYPE"
-echo "$MCONF_HOST"
+echo "type: $MCONF_TYPE"
+echo "host: $MCONF_HOST"
 
-/usr/bin/python $USER_PATH/nagios-hosts/nagios-hosts.py add $MCONF_TYPE $MCONF_HOST &> ~/output
+if [ "$MCONF_TYPE" == "bigbluebutton" ]
+then
+	MCONF_SALT=$7
+	echo "salt: $MCONF_SALT"
+	PARAMS="$MCONF_TYPE $MCONF_HOST $MCONF_SALT"
+else
+	PARAMS="$MCONF_TYPE $MCONF_HOST"
+fi
+
+/usr/bin/python $USER_PATH/nagios-hosts/nagios-hosts.py add $PARAMS &> /home/nagios/output
 
 now=`date +%s`
 commandfile='/usr/local/nagios/var/rw/nagios.cmd'

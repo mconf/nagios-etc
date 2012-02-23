@@ -1,10 +1,12 @@
 #!/usr/bin/python
 
 # TODO: set a different status when the response has a failure code
+# TODO: method to verify the format of HOST
 
 import sys
 import bigbluebutton_info
 import argparse
+from urlparse import urlparse
 
 # Exit statuses recognized by Nagios
 OK = 0
@@ -35,16 +37,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description = "Fetches information from a BigBlueButton server")
     parser.add_argument("--host",
         required = True,
-        help = "the BigBlueButton HOST",
+        help = "the BigBlueButton full HOST address. Format: http://192.168.0.101:8080/bigbluebutton",
         dest = "host",
-        metavar = "<IP or URI>")
-    parser.add_argument("--port",
-        type = int,
-        choices = xrange(0, 65535),
-        default = 80,
-        help = "the PORT used to connect to the API",
-        dest = "port",
-        metavar = "<0 - 65535>")
+        metavar = "<HOST>")
     parser.add_argument("--salt",
         required = True,
         help = "the SALT of your BigBlueButton server",
@@ -101,9 +96,10 @@ def main():
 
     # get the data from BBB
     try:
-        results = bigbluebutton_info.fetch(args.host, args.port, args.salt)
+        url = urlparse(args.host)
+        results = bigbluebutton_info.fetch(url.hostname, url.port, args.salt)
     except Exception as e:
-        sys.stdout.write("Connection error: " + str(e))
+        sys.stdout.write("Error: " + str(e))
         sys.exit((UNKNOWN))
 
     # output

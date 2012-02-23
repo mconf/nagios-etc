@@ -23,10 +23,13 @@ class BigBlueButtonInfo:
     def limits(self):
         return [self.meetingCount, self.userCount, self.audioCount, self.videoCount]
 
+# Creates a InfoArgs object with the complete BBB url and salt
 def info_args(host, port, salt):
     args = InfoArgs()
     args.salt = salt
-    args.url = host + ":" + str(port)
+    args.url = host
+    if port != None:
+        args.url += ":" + str(port)
 
     if not re.match("http[s]?://", args.url, re.IGNORECASE):
         args.url = "http://" + args.url
