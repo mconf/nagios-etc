@@ -20,6 +20,8 @@ class BigBlueButtonInfo:
         self.audioCount += count
     def addVideoUser(self):
         self.videoCount += 1
+    def limits(self):
+        return [self.meetingCount, self.userCount, self.audioCount, self.videoCount]
 
 def info_args(host, port, salt):
     args = InfoArgs()
