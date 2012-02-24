@@ -23,7 +23,7 @@ def messageFormater(dataList, formatList, name, unit, warn, crit, mini):
 	'''format a message given the data, name and parameters desired'''
 	message = ""
 	for Format, Data in zip(formatList, dataList) :
-				message += name + str(Format) + "=" + str(Data) + unit + ";" + warn + ";" + crit + ";"  + mini + "; "
+				message += name + str(Format) + "=" + str(Data) + unit + ";" + str(warn) + ";" + str(crit) + ";"  + str(mini) + "; "
 	return message
 	#example:
 	#load1=0.040;5.000;10.000;0; load5=0.010;4.000;6.000;0; load15=0.000;3.000;4.000;0;
@@ -46,6 +46,16 @@ def dataFormater(dataList, formats):
 			i += 1
 		returnList.append(trunc(total/form, 2))
 	return returnList
+	
+def checkStatus(levelList, crit, warn):
+	returnState = "0"
+	for strLevel in levelList:
+		level = float(strLevel)
+		if level > crit:
+			return "2"
+		if level > warn:
+			returnState = "1"
+	return returnState
 
 def sendReport(destination, service, state, message):
 	'''send report to nagios server'''
@@ -55,7 +65,8 @@ def sendReport(destination, service, state, message):
 	send_nsca_cfg_dir = "/usr/local/nagios/etc"
 
 	command = (
-		"/usr/bin/printf \"%s\t%s\t%s\t%s\n\" \"localhost\" \"" 
+		"/usr/bin/printf \"%s\t%s\t%s\t%s\n\" \"`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`\" \"" 
+		# `ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 		+ service + "\" \"" 
 		+ state + "\" \"" 
 		+ message + "\" | " 
@@ -64,7 +75,7 @@ def sendReport(destination, service, state, message):
 		+ send_nsca_cfg_dir + "/send_nsca.cfg" 
 		)
 
-	#commandoutput = commands.getoutput(command)
+	commandoutput = commands.getoutput(command)
 	#print message
 
 class CircularList:
@@ -133,12 +144,10 @@ class memoryReporter(Thread):
 		self.destination = destination
 		self.formatList = formatList
 		self.timeLapseSize = timeLapseSize
-		self.warn = "50.000"
-		self.crit = "90.000"
-		self.mini = "0"
-		self.service = "Memory Performance Report"
-		self.state= "3"
-		self.host = "`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`"
+		self.warn = 70
+		self.crit = 90
+		self.mini = 0
+		self.service = "Memory Report"
 		
 	def kill(self):
 		self.terminate = True
@@ -163,7 +172,9 @@ class memoryReporter(Thread):
 			message += "|"
 			message += messageFormater(formatedData, self.formatList, "muse", "%", self.warn, self.crit, self.mini)
 			
-			sendReport(self.destination, self.service, self.state, message)
+			state = checkStatus(formatedData, self.crit, self.warn)
+			
+			sendReport(self.destination, self.service, state, message)
 			
 class processorReporter(Thread):
 	'''thread class to collect and report processor data'''
@@ -175,12 +186,10 @@ class processorReporter(Thread):
 		self.destination = destination
 		self.formatList = formatList
 		self.timeLapseSize = timeLapseSize
-		self.warn = "50.000"
-		self.crit = "90.000"
-		self.mini = "0"
-		self.service = "Processor Performance Report"
-		self.state= "3"
-		self.host = "`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`"
+		self.warn = 70
+		self.crit = 90
+		self.mini = 0
+		self.service = "Processor Report"
 
 	def kill(self):
 		self.terminate = True
@@ -209,7 +218,7 @@ class processorReporter(Thread):
 			message += "|"
 			message += messageFormater(formatedData, self.formatList, "proc", "%", self.warn, self.crit, self.mini)
 				
-			sendReport(self.destination, self.service, self.state, message)
+			sendReport(self.destination, self.service, "0", message)
 
 class networkReporter(Thread):
 	'''thread class to collect and report network data'''
@@ -221,12 +230,10 @@ class networkReporter(Thread):
 		self.destination = destination
 		self.formatList = formatList
 		self.timeLapseSize = timeLapseSize
-		self.warn = "400.000"
-		self.crit = "900.000"
-		self.mini = "0"
-		self.service = "Network Performance Report"
-		self.state= "3"
-		self.host = "`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`"
+		self.warn = 400
+		self.crit = 900
+		self.mini = 0
+		self.service = "Network Report"
 		      
 	def kill(self):
 		self.terminate = True
@@ -269,7 +276,16 @@ class networkReporter(Thread):
 			message += messageFormater(formatedReceivedData, self.formatList, "recv", "kbps", self.warn, self.crit, self.mini)
 			message += messageFormater(formatedSentData, self.formatList, "sent", "kbps", self.warn, self.crit, self.mini)
 			
-			sendReport(self.destination, self.service, self.state, message)
+			sentState = int(checkStatus(formatedSentData, self.crit, self.warn))
+			recvState = int(checkStatus(formatedReceivedData, self.crit, self.warn))
+			
+			state = "3"
+			if sentState > recvState:
+				state = str(sentState)
+			else:
+				state = str(recvState)
+			
+			sendReport(self.destination, self.service, state, message)
 	
 def main_loop():
 	'''main loop to call all the reporters'''
