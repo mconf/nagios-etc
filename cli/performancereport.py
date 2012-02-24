@@ -19,6 +19,15 @@ def trunc(f, n):
     slen = len('%.*f' % (n, f))
     return str(f)[:slen]
 
+def messageFormater(dataList, formatList, name, unit, warn, crit, mini):
+	'''format a message given the data, name and parameters desired'''
+	message = ""
+	for Format, Data in zip(formatList, dataList) :
+				message += name + str(Format) + "=" + str(Data) + unit + ";" + warn + ";" + crit + ";"  + mini + "; "
+	return message
+	#example:
+	#load1=0.040;5.000;10.000;0; load5=0.010;4.000;6.000;0; load15=0.000;3.000;4.000;0;
+	
 def dataFormater(dataList, formats):
 	'''receives a data list and a format list returning the medium value until de Nth position of the data list for each format item'''
 	returnList = []
@@ -152,9 +161,7 @@ class memoryReporter(Thread):
 			formatedData = dataFormater(memDataList.GetList(), self.formatList)
 			message = "mem usage:" + str(formatedData)
 			message += "|"
-			
-			for Format, Data in zip(self.formatList, formatedData) :
-				message += "muse" + str(Format) + "=" + str(Data) + "%;" + self.warn + ";" + self.crit + ";"  + self.mini + "; "
+			message += messageFormater(formatedData, self.formatList, "muse", "%", self.warn, self.crit, self.mini)
 			
 			sendReport(self.destination, self.service, self.state, message)
 			
@@ -200,11 +207,8 @@ class processorReporter(Thread):
 			
 			message = "cpu load:" + str(formatedData)
 			message += "|"
-			
-			for Format, Data in zip(self.formatList, formatedData) :
-				message += "load" + str(Format) + "=" + str(Data) + "%;" + self.warn + ";" + self.crit + ";"  + self.mini + "; "
-				#example:
-				#load1=0.040;5.000;10.000;0; load5=0.010;4.000;6.000;0; load15=0.000;3.000;4.000;0;
+			message += messageFormater(formatedData, self.formatList, "proc", "%", self.warn, self.crit, self.mini)
+				
 			sendReport(self.destination, self.service, self.state, message)
 
 class networkReporter(Thread):
@@ -262,11 +266,8 @@ class networkReporter(Thread):
 			message = " Received data " + str(formatedReceivedData) + " Sent data " + str(formatedSentData)
 			message = "sent traffic:" + str(formatedSentData) + " received traffic:" + str(formatedReceivedData)
 			message += "|"
-			for Format, SentData, ReceivedData in zip(self.formatList, formatedSentData, formatedReceivedData) :
-				message += "recv" + str(Format) + "=" + str(ReceivedData) + "kbps;" + self.warn + ";" + self.crit + ";"  + self.mini + "; "
-				message += "sent" + str(Format) + "=" + str(SentData) + "kbps;" + self.warn + ";" + self.crit + ";"  + self.mini + "; "
-				#example:
-				#load1=0.040;5.000;10.000;0; load5=0.010;4.000;6.000;0; load15=0.000;3.000;4.000;0;
+			message += messageFormater(formatedReceivedData, self.formatList, "recv", "kbps", self.warn, self.crit, self.mini)
+			message += messageFormater(formatedSentData, self.formatList, "sent", "kbps", self.warn, self.crit, self.mini)
 			
 			sendReport(self.destination, self.service, self.state, message)
 	
