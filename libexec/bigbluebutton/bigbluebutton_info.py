@@ -39,11 +39,6 @@ def info_args(host, port, salt):
 
     return args
 
-# Returns true if the meeting_info object has support to the new tags
-# <listenerCount> and <hasVideoStream>
-def has_audio_video_support(info):
-    return "listenerCount" in info
-
 # Fetch information from a BBB server
 def fetch(host, port, salt):
     args = info_args(host, port, salt)
@@ -61,17 +56,11 @@ def fetch(host, port, salt):
                 meeting_info = bbb_api.getMeetingInfo(meeting["meetingID"], meeting["moderatorPW"], args.url, args.salt)
                 result.addToUsers(int(meeting_info["participantCount"]))
 
-                # the server has the new tags in the api response
-                if has_audio_video_support(meeting_info):
+                if "listenerCount" in meeting_info:
                     result.addToAudioUsers(int(meeting_info["listenerCount"]))
 
-                    for uid, user in meeting_info["attendees"].iteritems():
-                        if re.match("true", user["hasVideoStream"], re.IGNORECASE):
-                            result.addVideoUser()
-
-                # no support to the new api
-                else:
-                    result.audioCount = -1
-                    result.videoCount = -1
+                for uid, user in meeting_info["attendees"].iteritems():
+                    if "hasVideoStream" in user and re.match("true", user["hasVideoStream"], re.IGNORECASE):
+                        result.addVideoUser()
 
     return result
