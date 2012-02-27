@@ -66,7 +66,7 @@ def sendReport(destination, service, state, message):
 	send_nsca_cfg_dir = "/usr/local/nagios/etc"
 
 	command = (
-		"/usr/bin/printf \"%s\t%s\t%s\t%s\n\" \"`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`\" \"" 
+		"/usr/bin/printf \"%s\t%s\t%s\t%s\n\" \"" + hostname + "\" \"" 
 		# `ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 		+ service + "\" \"" 
 		+ state + "\" \"" 
@@ -299,10 +299,17 @@ class networkReporter(Thread):
 def parse_args():
     parser = argparse.ArgumentParser(description = "Fetches information for a Performance Reporter")
     parser.add_argument("--interface",
-        required = True,
+        required = False,
         help = "network interface to be monitored",
         dest = "interface",
+        default = "eth0",
         metavar = "<INTERFACE>")
+    parser.add_argument("--hostname",
+        required = False,
+        help = "name of the caller host",
+        dest = "hostname",
+        default = "`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`",
+        metavar = "<HOST>")
     return parser.parse_args()
 	
 def main_loop(args):
@@ -316,6 +323,8 @@ def main_loop(args):
 	formatList = [3,15,60]
 	timeLapseSize = 60
 	interface = args.interface
+        global hostname
+        hostname = args.hostname
 	
 	#here we should have the main call to the reporter threads
 	
@@ -339,7 +348,7 @@ def main_loop(args):
 	for reporterThread in threadsList:
 		reporterThread.start()
 	
-	raw_input("Press Enter to kill all threads...")
+	raw_input("Press Enter to kill all threads...\n")
 
 	#send kill sign to all threads
 	for reporterThread in threadsList:
