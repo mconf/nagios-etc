@@ -7,6 +7,7 @@ import time
 import commands
 import re
 import string
+import argparse
 from threading import Thread
 
 import psutil
@@ -229,7 +230,7 @@ class processorReporter(Thread):
 
 class networkReporter(Thread):
 	'''thread class to collect and report network data'''
-	def __init__ (self, refreshRate, sendRate, destination, formatList, timeLapseSize):
+	def __init__ (self, refreshRate, sendRate, destination, formatList, timeLapseSize, interface):
 		Thread.__init__(self)
 		self.terminate = False
 		self.refreshRate = refreshRate
@@ -241,6 +242,7 @@ class networkReporter(Thread):
 		self.crit = 900
 		self.mini = 0
 		self.service = "Network Report"
+		self.interface = interface
 		      
 	def kill(self):
 		self.terminate = True
@@ -248,6 +250,7 @@ class networkReporter(Thread):
 	def run(self):
 		sentDataList = CircularList(self.timeLapseSize)
 		receivedDataList = CircularList(self.timeLapseSize)
+		
 		while True:
 			
 			if self.terminate:
@@ -262,11 +265,10 @@ class networkReporter(Thread):
 				time.sleep(self.refreshRate)
 				tot_after = psutil.network_io_counters()
 				pnic_after = psutil.network_io_counters(pernic=True)
-				
+		
 				#format bytes to string
-				name = pnic_after.keys()[1] #get one network interface only
-				stats_before = pnic_before[name]
-				stats_after = pnic_after[name]
+				stats_before = pnic_before[self.interface]
+				stats_after = pnic_after[self.interface]
 				bytesSent = toKbps(stats_after.bytes_sent - stats_before.bytes_sent)
 				bytesReceived = toKbps(stats_after.bytes_recv - stats_before.bytes_recv)
 				
@@ -293,8 +295,17 @@ class networkReporter(Thread):
 				state = str(recvState)
 			
 			sendReport(self.destination, self.service, state, message)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description = "Fetches information for a Performance Reporter")
+    parser.add_argument("--interface",
+        required = True,
+        help = "network interface to be monitored",
+        dest = "interface",
+        metavar = "<INTERFACE>")
+    return parser.parse_args()
 	
-def main_loop():
+def main_loop(args):
 	'''main loop to call all the reporters'''
 	
 	#temporary parameters definition
@@ -304,11 +315,12 @@ def main_loop():
 	sendRate = 20 #ticks -> relative to the refreshRate parameter
 	formatList = [3,15,60]
 	timeLapseSize = 60
+	interface = args.interface
 	
 	#here we should have the main call to the reporter threads
 	
 	#networkReporter thread
-	current = networkReporter(refreshRate, sendRate, destination, formatList, timeLapseSize)
+	current = networkReporter(refreshRate, sendRate, destination, formatList, timeLapseSize, interface)
 	threadsList.append(current)
 	
 	#processorReporter thread
@@ -339,16 +351,10 @@ def main_loop():
 	
 def main():
     try:
-		'''
-		if len(sys.argv) != 3:
-			print "usage: -refreshRate -sendRate"
-		else:
-			refreshRate = sys.argv[1]
-			sendRate = sys.argv[2]
-			while 1:
-				refresh_window()
-		'''
-		main_loop()
+		# args
+		args = parse_args()
+		
+		main_loop(args)
     except (KeyboardInterrupt, SystemExit):
         pass
 
