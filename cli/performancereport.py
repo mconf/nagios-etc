@@ -117,21 +117,28 @@ class processesAnalyzer(Thread):
 			for p in psutil.process_iter():
 				processList.append(p)
 			
-			processesSortByMem = sorted(processList, key=lambda p: p.get_memory_percent(), reverse=True)
-			processesSortByProc = sorted(processList, key=lambda p: p.get_cpu_percent(interval=0), reverse=True)
-			
-			printProcStatus = False
-			if printProcStatus:
-				print "sorted by memory usage"
-				for i, p in zip(range(0,5),processesSortByMem):
-					print (" process name: " + str(p.name) + 
-							" mem use: " + str(p.get_memory_percent()))
-				print "\n"
-				print "sorted by processor usage"
-				for i, p in zip(range(0,5),processesSortByProc):
-					print (" process name: " + str(p.name) + 
-							" proc use: " + str(p.get_cpu_percent(interval=0)))
-				print "\n\n\n\n\n\n\n\n"
+			try:
+				processesSortByMem = sorted(processList, key=lambda p: p.get_memory_percent(), reverse=True)
+				processesSortByProc = sorted(processList, key=lambda p: p.get_cpu_percent(interval=0), reverse=True)
+
+				#to use later. Print top 5 processes on mem and proc usage
+				printProcStatus = False
+				
+				if printProcStatus:
+					print "sorted by memory usage"
+					for i, p in zip(range(0,5),processesSortByMem):
+						print (" process name: " + str(p.name) + 
+								" mem use: " + str(p.get_memory_percent()))
+					print "\n"
+					print "sorted by processor usage"
+					for i, p in zip(range(0,5),processesSortByProc):
+						print (" process name: " + str(p.name) + 
+								" proc use: " + str(p.get_cpu_percent(interval=0)))
+					print "\n\n\n\n\n\n\n\n"
+			except psutil.NoSuchProcess:
+				#just to catch the error and avoid killing the thread
+				#the raised error is because the process maybe killed before the get_cpu_percent or get_memory_percent calls
+				pass
 			time.sleep(self.refreshRate)
 
 class memoryReporter(Thread):
@@ -293,7 +300,7 @@ def main_loop():
 	#temporary parameters definition
 	destination = "143.54.12.174"
 	threadsList = []
-	refreshRate = 0.1 #seconds
+	refreshRate = 1 #seconds
 	sendRate = 20 #ticks -> relative to the refreshRate parameter
 	formatList = [3,15,60]
 	timeLapseSize = 60
