@@ -124,7 +124,6 @@ class processesAnalyzer(Thread):
 
 				#to use later. Print top 5 processes on mem and proc usage
 				printProcStatus = False
-				
 				if printProcStatus:
 					print "sorted by memory usage"
 					for i, p in zip(range(0,5),processesSortByMem):
@@ -297,34 +296,48 @@ class networkReporter(Thread):
 			sendReport(self.destination, self.service, state, message)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description = "Fetches information for a Performance Reporter")
-    parser.add_argument("--interface",
-        required = False,
-        help = "network interface to be monitored",
-        dest = "interface",
-        default = "eth0",
-        metavar = "<INTERFACE>")
-    parser.add_argument("--hostname",
-        required = False,
-        help = "name of the caller host",
-        dest = "hostname",
-        default = "`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`",
-        metavar = "<HOST>")
-    return parser.parse_args()
+	parser = argparse.ArgumentParser(description = "Fetches information for a Performance Reporter")
+	
+	parser.add_argument("--interface",
+		required = False,
+		help = "network interface to be monitored",
+		dest = "interface",
+		default = "eth0",
+		metavar = "<INTERFACE>")
+	parser.add_argument("--hostname",
+		required = False,
+		help = "name of the caller host",
+		dest = "hostname",
+		default = "`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`",
+		metavar = "<HOST>")
+	parser.add_argument("--refresh",
+		required = False,
+		help = "refresh rate that each sample is going to happen",
+		dest = "refresh",
+		default = "1",
+		metavar = "<refresh>")
+	parser.add_argument("--sendrate",
+		required = False,
+		help = "set how many refresh ticks should happen before each data send",
+		dest = "sendrate",
+		default = "30",
+		metavar = "<sendrate>")
+	return parser.parse_args()
 	
 def main_loop(args):
 	'''main loop to call all the reporters'''
+	global hostname
 	
 	#temporary parameters definition
 	destination = "143.54.12.174"
 	threadsList = []
-	refreshRate = 1 #seconds
-	sendRate = 20 #ticks -> relative to the refreshRate parameter
 	formatList = [3,15,60]
 	timeLapseSize = 60
+	
+	refreshRate = int(args.refresh)
+	sendRate = int(args.sendrate)
 	interface = args.interface
-        global hostname
-        hostname = args.hostname
+	hostname = args.hostname
 	
 	#here we should have the main call to the reporter threads
 	
@@ -341,7 +354,7 @@ def main_loop(args):
 	threadsList.append(current)
 	
 	#processesAnalyzer thread
-	current = processesAnalyzer(1)
+	current = processesAnalyzer(refreshRate)
 	threadsList.append(current)
 	
 	#start every thread
