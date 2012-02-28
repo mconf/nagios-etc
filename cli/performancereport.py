@@ -24,7 +24,7 @@ def messageFormater(dataList, formatList, name, unit, warn, crit, mini):
 	'''format a message given the data, name and parameters desired'''
 	message = ""
 	for Format, Data in zip(formatList, dataList) :
-				message += name + str(Format) + "=" + str(Data) + unit + ";" + str(warn) + ";" + str(crit) + ";"  + str(mini) + "; "
+		message += name + str(Format) + "=" + str(Data) + unit + ";" + str(warn) + ";" + str(crit) + ";"  + str(mini) + "; "
 	return message
 	#example:
 	#load1=0.040;5.000;10.000;0; load5=0.010;4.000;6.000;0; load15=0.000;3.000;4.000;0;
@@ -322,6 +322,12 @@ def parse_args():
 		dest = "sendrate",
 		default = "30",
 		metavar = "<sendrate>")
+	parser.add_argument("--server",
+		required = False,
+		help = "ip adress of the nagios server",
+		dest = "server",
+		default = "143.54.12.174",
+		metavar = "<server>")
 	return parser.parse_args()
 	
 def main_loop(args):
@@ -329,7 +335,7 @@ def main_loop(args):
 	global hostname
 	
 	#temporary parameters definition
-	destination = "143.54.12.174"
+	
 	threadsList = []
 	formatList = [3,15,60]
 	timeLapseSize = 60
@@ -338,6 +344,7 @@ def main_loop(args):
 	sendRate = int(args.sendrate)
 	interface = args.interface
 	hostname = args.hostname
+	destination = args.server
 	
 	#here we should have the main call to the reporter threads
 	
