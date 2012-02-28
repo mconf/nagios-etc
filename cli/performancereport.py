@@ -12,6 +12,13 @@ from threading import Thread
 
 import psutil
 
+# Exit statuses recognized by Nagios
+NAGIOS_OK = "0"
+NAGIOS_WARNING = "1"
+NAGIOS_CRITICAL = "2"
+NAGIOS_UNKNOWN = "3"
+
+
 def toKbps(n):
     return float(n >> 7)
     
@@ -19,6 +26,17 @@ def trunc(f, n):
     '''Truncates/pads a float f to n decimal places without rounding'''
     slen = len('%.*f' % (n, f))
     return str(f)[:slen]
+
+def gcd(a, b):
+	while b != 0:
+		a, b = b, a%b
+	return abs(a)
+
+def recgcd(numberList):
+	last = numberList[0]
+	for number in numberList:
+		last = gcd(last, number)
+	return last
 
 def messageFormater(dataList, formatList, name, unit, warn, crit, mini):
 	'''format a message given the data, name and parameters desired'''
@@ -49,13 +67,13 @@ def dataFormater(dataList, formats):
 	return returnList
 	
 def checkStatus(levelList, crit, warn):
-	returnState = "0"
+	returnState = NAGIOS_OK
 	for strLevel in levelList:
 		level = float(strLevel)
 		if level > crit:
-			return "2"
+			return NAGIOS_CRITICAL
 		if level > warn:
-			returnState = "1"
+			returnState = NAGIOS_WARNING
 	return returnState
 
 def sendReport(destination, service, state, message):
@@ -287,7 +305,7 @@ class networkReporter(Thread):
 			sentState = int(checkStatus(formatedSentData, self.crit, self.warn))
 			recvState = int(checkStatus(formatedReceivedData, self.crit, self.warn))
 			
-			state = "3"
+			state = NAGIOS_UNKNOWN
 			if sentState > recvState:
 				state = str(sentState)
 			else:
@@ -310,12 +328,12 @@ def parse_args():
 		dest = "hostname",
 		default = "`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`",
 		metavar = "<HOST>")
-	parser.add_argument("--refresh",
+	parser.add_argument("--format",
 		required = False,
-		help = "refresh rate that each sample is going to happen",
-		dest = "refresh",
-		default = "1",
-		metavar = "<refresh>")
+		help = "format list that the data should be send",
+		dest = "data_format",
+		default = "3,15,60",
+		metavar = "<data_format>")
 	parser.add_argument("--sendrate",
 		required = False,
 		help = "set how many refresh ticks should happen before each data send",
@@ -335,19 +353,19 @@ def main_loop(args):
 	global hostname
 	
 	#temporary parameters definition
-	
 	threadsList = []
-	formatList = [3,15,60]
-	timeLapseSize = 60
 	
-	refreshRate = int(args.refresh)
-	sendRate = int(args.sendrate)
+	#args set
 	interface = args.interface
 	hostname = args.hostname
 	destination = args.server
+	sendRate = int(args.sendrate)
+	formatList = eval(args.data_format)
+	refreshRate = recgcd(formatList)
+	#set circular list according to maximum data resolution size
+	timeLapseSize = (max(formatList)/refreshRate)
 	
 	#here we should have the main call to the reporter threads
-	
 	#networkReporter thread
 	current = networkReporter(refreshRate, sendRate, destination, formatList, timeLapseSize, interface)
 	threadsList.append(current)
