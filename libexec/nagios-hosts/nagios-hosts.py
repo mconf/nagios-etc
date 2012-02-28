@@ -93,6 +93,7 @@ def add(server_type, host, salt=''):
     if server_type == 'bigbluebutton':
         new_host['_bbb_url'] = host
         new_host['_bbb_salt'] = salt
+        new_host['notes'] = '$_HOSTBBB_URL$ $_HOSTBBB_SALT$'
     nc.data['all_host'].append(new_host)
 
     hostgroup = nc.get_hostgroup(hostgroup_name)
