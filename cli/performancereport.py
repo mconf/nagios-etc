@@ -27,11 +27,13 @@ def trunc(f, n):
     slen = len('%.*f' % (n, f))
     return str(f)[:slen]
 
+#greatest commom divisor for two integers
 def gcd(a, b):
 	while b != 0:
 		a, b = b, a%b
 	return abs(a)
 
+#recursive call of greatest commom divisor for a list of integers
 def recgcd(numberList):
 	last = numberList[0]
 	for number in numberList:
@@ -330,7 +332,7 @@ def parse_args():
 		metavar = "<HOST>")
 	parser.add_argument("--format",
 		required = False,
-		help = "format list that the data should be send",
+		help = "format list that the data should be send. Example: \"3,15,60\" ",
 		dest = "data_format",
 		default = "3,15,60",
 		metavar = "<data_format>")
@@ -338,7 +340,7 @@ def parse_args():
 		required = False,
 		help = "set how many refresh ticks should happen before each data send",
 		dest = "sendrate",
-		default = "30",
+		default = "20",
 		metavar = "<sendrate>")
 	parser.add_argument("--server",
 		required = False,
@@ -361,9 +363,12 @@ def main_loop(args):
 	destination = args.server
 	sendRate = int(args.sendrate)
 	formatList = eval(args.data_format)
+	#calculate new refresh rate with de greatest commom divisor
 	refreshRate = recgcd(formatList)
-	#set circular list according to maximum data resolution size
+	#set circular list size according to maximum data resolution
 	timeLapseSize = (max(formatList)/refreshRate)
+	#ajust each time interval according to the new time resolution
+	formatList = [x/refreshRate for x in formatList]
 	
 	#here we should have the main call to the reporter threads
 	#networkReporter thread
