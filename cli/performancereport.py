@@ -40,11 +40,11 @@ def recgcd(numberList):
 		last = gcd(last, number)
 	return last
 
-def messageFormater(dataList, formatList, name, unit, warn, crit, mini):
+def messageFormater(dataList, formatList, name, formatMultiplier, unit, warn, crit, mini):
 	'''format a message given the data, name and parameters desired'''
 	message = ""
 	for Format, Data in zip(formatList, dataList) :
-		message += name + str(Format) + "=" + str(Data) + unit + ";" + str(warn) + ";" + str(crit) + ";"  + str(mini) + "; "
+		message += name + str(Format * formatMultiplier) + "=" + str(Data) + unit + ";" + str(warn) + ";" + str(crit) + ";"  + str(mini) + "; "
 	return message
 	#example:
 	#load1=0.040;5.000;10.000;0; load5=0.010;4.000;6.000;0; load15=0.000;3.000;4.000;0;
@@ -132,7 +132,7 @@ class processesAnalyzer(Thread):
 		while True:
 			
 			if self.terminate:
-				return 
+				return
 			
 			processList = []
 			for p in psutil.process_iter():
@@ -146,14 +146,12 @@ class processesAnalyzer(Thread):
 				printProcStatus = False
 				if printProcStatus:
 					print "sorted by memory usage"
-					for i, p in zip(range(0,5),processesSortByMem):
-						print (" process name: " + str(p.name) + 
-								" mem use: " + str(p.get_memory_percent()))
+					for i, p in zip(range(5),processesSortByMem):
+						print (" process name: " + str(p.name) + " mem use: " + str(p.get_memory_percent()))
 					print "\n"
 					print "sorted by processor usage"
-					for i, p in zip(range(0,5),processesSortByProc):
-						print (" process name: " + str(p.name) + 
-								" proc use: " + str(p.get_cpu_percent(interval=0)))
+					for i, p in zip(range(5),processesSortByProc):
+						print (" process name: " + str(p.name) + " proc use: " + str(p.get_cpu_percent(interval=0)))
 					print "\n\n\n\n\n\n\n\n"
 			except psutil.NoSuchProcess:
 				#just to catch the error and avoid killing the thread
@@ -197,7 +195,7 @@ class memoryReporter(Thread):
 			formatedData = dataFormater(memDataList.GetList(), self.formatList)
 			message = "mem usage:" + str(formatedData)
 			message += "|"
-			message += messageFormater(formatedData, self.formatList, "muse", "%", self.warn, self.crit, self.mini)
+			message += messageFormater(formatedData, self.formatList, "muse", self.refreshRate, "%", self.warn, self.crit, self.mini)
 			
 			state = checkStatus(formatedData, self.crit, self.warn)
 			
@@ -243,7 +241,7 @@ class processorReporter(Thread):
 			
 			message = "cpu load:" + str(formatedData)
 			message += "|"
-			message += messageFormater(formatedData, self.formatList, "proc", "%", self.warn, self.crit, self.mini)
+			message += messageFormater(formatedData, self.formatList, "proc", self.refreshRate, "%", self.warn, self.crit, self.mini)
 				
 			sendReport(self.destination, self.service, "0", message)
 
@@ -301,8 +299,8 @@ class networkReporter(Thread):
 			message = " Received data " + str(formatedReceivedData) + " Sent data " + str(formatedSentData)
 			message = "sent traffic:" + str(formatedSentData) + " received traffic:" + str(formatedReceivedData)
 			message += "|"
-			message += messageFormater(formatedReceivedData, self.formatList, "recv", "kbps", self.warn, self.crit, self.mini)
-			message += messageFormater(formatedSentData, self.formatList, "sent", "kbps", self.warn, self.crit, self.mini)
+			message += messageFormater(formatedReceivedData, self.formatList, "recv", self.refreshRate, "kbps", self.warn, self.crit, self.mini)
+			message += messageFormater(formatedSentData, self.formatList, "sent", self.refreshRate, "kbps", self.warn, self.crit, self.mini)
 			
 			sentState = int(checkStatus(formatedSentData, self.crit, self.warn))
 			recvState = int(checkStatus(formatedReceivedData, self.crit, self.warn))
