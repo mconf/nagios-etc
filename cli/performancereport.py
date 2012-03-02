@@ -85,7 +85,7 @@ def checkStatus(levelList, crit, warn):
 	return returnState
 
 class CircularList:
-	#TOFIX: the circular list is not a temporal circular, it is a memory allocation circular.
+	#TOFIX?: the circular list is not a temporal circular, it is a memory allocation circular.
 	def __init__(self, size):
 		self.size = size
 		self.position = 0
@@ -159,10 +159,12 @@ class Reporter(Thread):
 		self.mini = 0
 	
 	def kill(self):
+		#send kill sign to terminate the thread in the next data collection loop
 		self.terminate = True
 		
 	def threadLoop(self):
-		#nothing on the base class
+		#nothing on the base class 
+		#Should be implemented by each reporter service
 		return
 
 	def sendReport(self):
@@ -184,6 +186,8 @@ class Reporter(Thread):
 			)
 		commandoutput = commands.getoutput(command)
 		if DEBUGMODE:
+			print "---------------------------------"
+			print self.service, self.state, self.message
 			print command
 			
 	def run(self):
@@ -192,6 +196,8 @@ class Reporter(Thread):
 				return
 			#call method that actually do what the threads needs to do
 			self.threadLoop()
+			
+			#test for empty parameters before sending the data
 			if not (self.service == None or self.destination == None or self.state == None or self.message == None):
 				self.sendReport()
 			elif DEBUGMODE:
@@ -201,7 +207,7 @@ class memoryReporter(Reporter):
 	'''reporter class to collect and report memory data'''
 	def __init__(self, refreshRate, sendRate, destination, formatList, timeLapseSize):
 		Reporter.__init__(self, refreshRate, sendRate, destination, formatList, timeLapseSize)
-		Reporter.service = "Memory Report"
+		self.service = "Memory Report"
 		self.memDataList = CircularList(self.timeLapseSize)
 		
 	def threadLoop(self):
@@ -213,16 +219,16 @@ class memoryReporter(Reporter):
 			self.memDataList.Append(memUse)
 		
 		formatedData = dataFormater(self.memDataList.GetList(), self.formatList)
-		Reporter.message = ("mem usage:" + str(formatedData) + "|" 	
+		self.message = ("mem usage:" + str(formatedData) + "|" 	
 						+ messageFormater(formatedData, self.formatList, "muse", self.refreshRate, "%", self.warn, self.crit, self.mini))
 		
-		Reporter.state = checkStatus(formatedData, self.crit, self.warn)
+		self.state = checkStatus(formatedData, self.crit, self.warn)
 
 class processorReporter(Reporter):
 	'''reporter class to collect and report processor data'''
 	def __init__ (self,refreshRate, sendRate, destination, formatList, timeLapseSize):
 		Reporter.__init__(self, refreshRate, sendRate, destination, formatList, timeLapseSize)
-		Reporter.service = "Processor Report"
+		self.service = "Processor Report"
 		self.cpuDataList = CircularList(self.timeLapseSize)
 		
 	def threadLoop(self):
@@ -233,17 +239,16 @@ class processorReporter(Reporter):
 			cpu_percent = 0
 			cpu_quantity = cpu_quantity + 1
 			self.cpuDataList.Append(psutil.cpu_percent(self.refreshRate, percpu=False))
-		
 		formatedData = dataFormater(self.cpuDataList.GetList(), self.formatList)
-		Reporter.message = ("cpu load:" + str(formatedData) + "|" + 
+		self.message = ("cpu load:" + str(formatedData) + "|" + 
 			messageFormater(formatedData, self.formatList, "proc", self.refreshRate, "%", self.warn, self.crit, self.mini))
-		Reporter.state = checkStatus(formatedData, self.crit, self.warn)
+		self.state = checkStatus(formatedData, self.crit, self.warn)
 
 class networkReporter(Reporter):
 	'''reporter class to collect and report network data'''
 	def __init__ (self, refreshRate, sendRate, destination, formatList, timeLapseSize, interface):
 		Reporter.__init__(self, refreshRate, sendRate, destination, formatList, timeLapseSize)
-		Reporter.service = "Network Report"
+		self.service = "Network Report"
 		self.interface = interface
 		self.sentDataList = CircularList(self.timeLapseSize)
 		self.receivedDataList = CircularList(self.timeLapseSize)
@@ -272,7 +277,7 @@ class networkReporter(Reporter):
 		formatedSentData = dataFormater(self.sentDataList.GetList(), self.formatList)
 		formatedReceivedData = dataFormater(self.receivedDataList.GetList(), self.formatList)
 		
-		Reporter.message = (" Received data " + str(formatedReceivedData) + " Sent data " + str(formatedSentData) +
+		self.message = (" Received data " + str(formatedReceivedData) + " Sent data " + str(formatedSentData) +
 			"sent traffic:" + str(formatedSentData) + " received traffic:" + str(formatedReceivedData) + "|" +
 			messageFormater(formatedReceivedData, self.formatList, "recv", self.refreshRate, "kbps", self.warn, self.crit, self.mini) +
 			messageFormater(formatedSentData, self.formatList, "sent", self.refreshRate, "kbps", self.warn, self.crit, self.mini))
@@ -280,11 +285,11 @@ class networkReporter(Reporter):
 		sentState = int(checkStatus(formatedSentData, self.crit, self.warn))
 		recvState = int(checkStatus(formatedReceivedData, self.crit, self.warn))
 		
-		Reporter.state = NAGIOS_UNKNOWN
+		self.state = NAGIOS_UNKNOWN
 		if sentState > recvState:
-			Reporter.state = str(sentState)
+			self.state = str(sentState)
 		else:
-			Reporter.state = str(recvState)
+			self.state = str(recvState)
 
 def parse_args():
 	parser = argparse.ArgumentParser(description = "Fetches information for a Performance Reporter")
