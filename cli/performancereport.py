@@ -18,6 +18,12 @@ NAGIOS_WARNING = "1"
 NAGIOS_CRITICAL = "2"
 NAGIOS_UNKNOWN = "3"
 
+# Globals
+
+HOSTNAME = "localhost"
+DEBUGMODE = False
+	
+
 
 def toKbps(n):
     return float(n >> 7)
@@ -78,27 +84,6 @@ def checkStatus(levelList, crit, warn):
 			returnState = NAGIOS_WARNING
 	return returnState
 
-def sendReport(destination, service, state, message):
-	'''send report to nagios server'''
-	
-	#mount data 
-	send_nsca_dir = "/usr/local/nagios/bin"
-	send_nsca_cfg_dir = "/usr/local/nagios/etc"
-
-	command = (
-		"/usr/bin/printf \"%s\t%s\t%s\t%s\n\" \"" + hostname + "\" \"" 
-		# `ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
-		+ service + "\" \"" 
-		+ state + "\" \"" 
-		+ message + "\" | " 
-		+ send_nsca_dir + "/send_nsca -H " 
-		+ destination + " -c " 
-		+ send_nsca_cfg_dir + "/send_nsca.cfg" 
-		)
-
-	commandoutput = commands.getoutput(command)
-	#print message
-
 class CircularList:
 	#TOFIX: the circular list is not a temporal circular, it is a memory allocation circular.
 	def __init__(self, size):
@@ -117,7 +102,7 @@ class CircularList:
 		
 	def GetList(self):
 		return self.dataList
-		
+
 class processesAnalyzer(Thread):
 	'''collect cpu process data and print them to the stdout'''
 	def __init__ (self,refreshRate):
@@ -159,9 +144,9 @@ class processesAnalyzer(Thread):
 				pass
 			time.sleep(self.refreshRate)
 
-class memoryReporter(Thread):
-	'''thread class to collect and report memory data'''
-	def __init__ (self,refreshRate, sendRate, destination, formatList, timeLapseSize):
+class Reporter(Thread):
+	'''base reporter thread class'''
+	def __init__ (self, refreshRate, sendRate, destination, formatList, timeLapseSize):
 		Thread.__init__(self)
 		self.terminate = False
 		self.refreshRate = refreshRate
@@ -172,150 +157,137 @@ class memoryReporter(Thread):
 		self.warn = 70
 		self.crit = 90
 		self.mini = 0
-		self.service = "Memory Report"
-		
-	def kill(self):
-		self.terminate = True
-		
-	def run(self):
-		memDataList = CircularList(self.timeLapseSize)
-		
-		while True:
-			
-			if self.terminate:
-				return
-			
-			sendTime = self.sendRate	
-			while sendTime >= 0:
-				sendTime -= 1
-				time.sleep(self.refreshRate)
-				memUse = psutil.phymem_usage().percent
-				memDataList.Append(memUse)
-			
-			formatedData = dataFormater(memDataList.GetList(), self.formatList)
-			message = "mem usage:" + str(formatedData)
-			message += "|"
-			message += messageFormater(formatedData, self.formatList, "muse", self.refreshRate, "%", self.warn, self.crit, self.mini)
-			
-			state = checkStatus(formatedData, self.crit, self.warn)
-			
-			sendReport(self.destination, self.service, state, message)
-			
-class processorReporter(Thread):
-	'''thread class to collect and report processor data'''
-	def __init__ (self,refreshRate, sendRate, destination, formatList, timeLapseSize):
-		Thread.__init__(self)
-		self.terminate = False
-		self.refreshRate = refreshRate
-		self.sendRate = sendRate
-		self.destination = destination
-		self.formatList = formatList
-		self.timeLapseSize = timeLapseSize
-		self.warn = 70
-		self.crit = 90
-		self.mini = 0
-		self.service = "Processor Report"
-
-	def kill(self):
-		self.terminate = True
-      
-	def run(self):
-		cpuDataList = CircularList(self.timeLapseSize)
-		while True:
-			
-			if self.terminate:
-				return
-			
-			sendTime = self.sendRate
-			while sendTime >= 0:
-				sendTime -= 1
-				cpu_quantity = 0
-				cpu_percent = 0
-				cpu_quantity = cpu_quantity + 1
-				cpuDataList.Append(psutil.cpu_percent(self.refreshRate, percpu=False))
-			
-			formatedData = dataFormater(cpuDataList.GetList(), self.formatList)
-			
-			#example:
-			#printf "%s\t%s\t%s\t%s\n" "192.168.0.100" "CPU Load" "0" "Status information|cpu1=50%;90;95;0;100" | ~/downloads/nsca-2.7.2/src/send_nsca -H 192.168.0.100 -c ~/downloads/nsca-2.7.2/sample-config/send_nsca.cfg
-			
-			message = "cpu load:" + str(formatedData)
-			message += "|"
-			message += messageFormater(formatedData, self.formatList, "proc", self.refreshRate, "%", self.warn, self.crit, self.mini)
-				
-			sendReport(self.destination, self.service, "0", message)
-
-class networkReporter(Thread):
-	'''thread class to collect and report network data'''
-	def __init__ (self, refreshRate, sendRate, destination, formatList, timeLapseSize, interface):
-		Thread.__init__(self)
-		self.terminate = False
-		self.refreshRate = refreshRate
-		self.sendRate = sendRate
-		self.destination = destination
-		self.formatList = formatList
-		self.timeLapseSize = timeLapseSize
-		self.warn = 400
-		self.crit = 900
-		self.mini = 0
-		self.service = "Network Report"
-		self.interface = interface
-		      
-	def kill(self):
-		self.terminate = True
 	
-	def run(self):
-		sentDataList = CircularList(self.timeLapseSize)
-		receivedDataList = CircularList(self.timeLapseSize)
+	def kill(self):
+		self.terminate = True
 		
-		while True:
+	def threadLoop(self):
+		#nothing on the base class
+		return
+
+	def sendReport(self):
+		'''send report to nagios server'''
+
+		#mount data 
+		send_nsca_dir = "/usr/local/nagios/bin"
+		send_nsca_cfg_dir = "/usr/local/nagios/etc"
+
+		command = (
+			"/usr/bin/printf \"%s\t%s\t%s\t%s\n\" \"" + HOSTNAME + "\" \"" 
+			# `ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+			+ self.service + "\" \"" 
+			+ self.state + "\" \"" 
+			+ self.message + "\" | " 
+			+ send_nsca_dir + "/send_nsca -H " 
+			+ self.destination + " -c " 
+			+ send_nsca_cfg_dir + "/send_nsca.cfg" 
+			)
+		commandoutput = commands.getoutput(command)
+		if DEBUGMODE:
+			print command
 			
+	def run(self):
+		while True:
 			if self.terminate:
 				return
-			
-			sendTime = self.sendRate
-			while sendTime >= 0:
-				sendTime -= 1
-				#collect data
-				tot_before = psutil.network_io_counters()
-				pnic_before = psutil.network_io_counters(pernic=True)
-				time.sleep(self.refreshRate)
-				tot_after = psutil.network_io_counters()
-				pnic_after = psutil.network_io_counters(pernic=True)
+			#call method that actually do what the threads needs to do
+			self.threadLoop()
+			if not (self.service == None or self.destination == None or self.state == None or self.message == None):
+				self.sendReport()
+			elif DEBUGMODE:
+				print "send data ERROR:" + self.service + self.destination + self.state + self.message
+
+class memoryReporter(Reporter):
+	'''reporter class to collect and report memory data'''
+	def __init__(self, refreshRate, sendRate, destination, formatList, timeLapseSize):
+		Reporter.__init__(self, refreshRate, sendRate, destination, formatList, timeLapseSize)
+		Reporter.service = "Memory Report"
+		self.memDataList = CircularList(self.timeLapseSize)
 		
-				#format bytes to string
-				stats_before = pnic_before[self.interface]
-				stats_after = pnic_after[self.interface]
-				bytesSent = toKbps(stats_after.bytes_sent - stats_before.bytes_sent)
-				bytesReceived = toKbps(stats_after.bytes_recv - stats_before.bytes_recv)
-				
-				#store on a circular list
-				sentDataList.Append(bytesSent)
-				receivedDataList.Append(bytesReceived)
+	def threadLoop(self):
+		sendTime = self.sendRate
+		while sendTime >= 0:
+			sendTime -= 1
+			time.sleep(self.refreshRate)
+			memUse = psutil.phymem_usage().percent
+			self.memDataList.Append(memUse)
+		
+		formatedData = dataFormater(self.memDataList.GetList(), self.formatList)
+		Reporter.message = ("mem usage:" + str(formatedData) + "|" 	
+						+ messageFormater(formatedData, self.formatList, "muse", self.refreshRate, "%", self.warn, self.crit, self.mini))
+		
+		Reporter.state = checkStatus(formatedData, self.crit, self.warn)
+
+class processorReporter(Reporter):
+	'''reporter class to collect and report processor data'''
+	def __init__ (self,refreshRate, sendRate, destination, formatList, timeLapseSize):
+		Reporter.__init__(self, refreshRate, sendRate, destination, formatList, timeLapseSize)
+		Reporter.service = "Processor Report"
+		self.cpuDataList = CircularList(self.timeLapseSize)
+		
+	def threadLoop(self):
+		sendTime = self.sendRate
+		while sendTime >= 0:
+			sendTime -= 1
+			cpu_quantity = 0
+			cpu_percent = 0
+			cpu_quantity = cpu_quantity + 1
+			self.cpuDataList.Append(psutil.cpu_percent(self.refreshRate, percpu=False))
+		
+		formatedData = dataFormater(self.cpuDataList.GetList(), self.formatList)
+		Reporter.message = ("cpu load:" + str(formatedData) + "|" + 
+			messageFormater(formatedData, self.formatList, "proc", self.refreshRate, "%", self.warn, self.crit, self.mini))
+		Reporter.state = checkStatus(formatedData, self.crit, self.warn)
+
+class networkReporter(Reporter):
+	'''reporter class to collect and report network data'''
+	def __init__ (self, refreshRate, sendRate, destination, formatList, timeLapseSize, interface):
+		Reporter.__init__(self, refreshRate, sendRate, destination, formatList, timeLapseSize)
+		Reporter.service = "Network Report"
+		self.interface = interface
+		self.sentDataList = CircularList(self.timeLapseSize)
+		self.receivedDataList = CircularList(self.timeLapseSize)
+		
+	def threadLoop(self):
+		sendTime = self.sendRate
+		while sendTime >= 0:
+			sendTime -= 1
+			#collect data
+			tot_before = psutil.network_io_counters()
+			pnic_before = psutil.network_io_counters(pernic=True)
+			time.sleep(self.refreshRate)
+			tot_after = psutil.network_io_counters()
+			pnic_after = psutil.network_io_counters(pernic=True)
+	
+			#format bytes to string
+			stats_before = pnic_before[self.interface]
+			stats_after = pnic_after[self.interface]
+			bytesSent = toKbps(stats_after.bytes_sent - stats_before.bytes_sent)
+			bytesReceived = toKbps(stats_after.bytes_recv - stats_before.bytes_recv)
 			
-			formatedSentData = dataFormater(sentDataList.GetList(), self.formatList)
-			formatedReceivedData = dataFormater(receivedDataList.GetList(), self.formatList)
-			
-			message = " Received data " + str(formatedReceivedData) + " Sent data " + str(formatedSentData)
-			message = "sent traffic:" + str(formatedSentData) + " received traffic:" + str(formatedReceivedData)
-			message += "|"
-			message += messageFormater(formatedReceivedData, self.formatList, "recv", self.refreshRate, "kbps", self.warn, self.crit, self.mini)
-			message += messageFormater(formatedSentData, self.formatList, "sent", self.refreshRate, "kbps", self.warn, self.crit, self.mini)
-			
-			sentState = int(checkStatus(formatedSentData, self.crit, self.warn))
-			recvState = int(checkStatus(formatedReceivedData, self.crit, self.warn))
-			
-			state = NAGIOS_UNKNOWN
-			if sentState > recvState:
-				state = str(sentState)
-			else:
-				state = str(recvState)
-			
-			sendReport(self.destination, self.service, state, message)
+			#store on a circular list
+			self.sentDataList.Append(bytesSent)
+			self.receivedDataList.Append(bytesReceived)
+		
+		formatedSentData = dataFormater(self.sentDataList.GetList(), self.formatList)
+		formatedReceivedData = dataFormater(self.receivedDataList.GetList(), self.formatList)
+		
+		Reporter.message = (" Received data " + str(formatedReceivedData) + " Sent data " + str(formatedSentData) +
+			"sent traffic:" + str(formatedSentData) + " received traffic:" + str(formatedReceivedData) + "|" +
+			messageFormater(formatedReceivedData, self.formatList, "recv", self.refreshRate, "kbps", self.warn, self.crit, self.mini) +
+			messageFormater(formatedSentData, self.formatList, "sent", self.refreshRate, "kbps", self.warn, self.crit, self.mini))
+		
+		sentState = int(checkStatus(formatedSentData, self.crit, self.warn))
+		recvState = int(checkStatus(formatedReceivedData, self.crit, self.warn))
+		
+		Reporter.state = NAGIOS_UNKNOWN
+		if sentState > recvState:
+			Reporter.state = str(sentState)
+		else:
+			Reporter.state = str(recvState)
 
 def parse_args():
 	parser = argparse.ArgumentParser(description = "Fetches information for a Performance Reporter")
-	
 	parser.add_argument("--interface",
 		required = False,
 		help = "network interface to be monitored",
@@ -346,18 +318,26 @@ def parse_args():
 		dest = "server",
 		default = "143.54.12.174",
 		metavar = "<server>")
+	parser.add_argument("--debug",
+		required = False,
+		help = "debug mode: print output",
+		dest = "debug",
+		action='store_true')
 	return parser.parse_args()
-	
+
 def main_loop(args):
 	'''main loop to call all the reporters'''
-	global hostname
+	
+	global DEBUGMODE
+	global HOSTNAME
 	
 	#temporary parameters definition
 	threadsList = []
 	
 	#args set
+	DEBUGMODE = args.debug
 	interface = args.interface
-	hostname = args.hostname
+	HOSTNAME = args.hostname
 	destination = args.server
 	sendRate = int(args.sendrate)
 	formatList = eval(args.data_format)
@@ -383,7 +363,7 @@ def main_loop(args):
 	
 	#processesAnalyzer thread
 	current = processesAnalyzer(refreshRate)
-	threadsList.append(current)
+	#threadsList.append(current)
 	
 	#start every thread
 	for reporterThread in threadsList:
