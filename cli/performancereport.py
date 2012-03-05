@@ -33,14 +33,14 @@ def trunc(f, n):
     slen = len('%.*f' % (n, f))
     return str(f)[:slen]
 
-#greatest commom divisor for two integers
 def gcd(a, b):
+	'''greatest commom divisor for two integers'''
 	while b != 0:
 		a, b = b, a%b
 	return abs(a)
 
-#recursive call of greatest commom divisor for a list of integers
 def recgcd(numberList):
+	'''recursive call of greatest commom divisor for a list of integers'''
 	last = numberList[0]
 	for number in numberList:
 		last = gcd(last, number)
@@ -115,18 +115,14 @@ class processesAnalyzer(Thread):
 		
 	def run(self):
 		while True:
-			
 			if self.terminate:
 				return
-			
 			processList = []
 			for p in psutil.process_iter():
 				processList.append(p)
-			
 			try:
 				processesSortByMem = sorted(processList, key=lambda p: p.get_memory_percent(), reverse=True)
 				processesSortByProc = sorted(processList, key=lambda p: p.get_cpu_percent(interval=0), reverse=True)
-
 				#to use later. Print top 5 processes on mem and proc usage
 				printProcStatus = False
 				if printProcStatus:
@@ -174,7 +170,6 @@ class Reporter(Thread):
 		#mount data 
 		send_nsca_dir = "/usr/local/nagios/bin"
 		send_nsca_cfg_dir = "/usr/local/nagios/etc"
-
 		command = (
 			"/usr/bin/printf \"%s\t%s\t%s\t%s\n\" \"" + HOSTNAME + "\" \"" 
 			# `ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
@@ -202,7 +197,7 @@ class Reporter(Thread):
 			if not (self.service == None or self.destination == None or self.state == None or self.message == None):
 				self.sendReport()
 			elif DEBUGMODE:
-				print "-> send data ERROR: " + self.service + self.destination + self.state + self.message
+				print "-> send data ERROR: " + self.service + self.state + self.message
 
 class memoryReporter(Reporter):
 	'''reporter class to collect and report memory data'''
@@ -218,11 +213,11 @@ class memoryReporter(Reporter):
 			time.sleep(self.refreshRate)
 			memUse = psutil.phymem_usage().percent
 			self.memDataList.Append(memUse)
-		
 		formatedData = dataFormater(self.memDataList.GetList(), self.formatList)
+		#message mount
 		self.message = ("mem usage:" + str(formatedData) + "|" 	
 						+ messageFormater(formatedData, self.formatList, "muse", self.refreshRate, "%", self.warn, self.crit, self.mini))
-		
+		#state mount
 		self.state = checkStatus(formatedData, self.crit, self.warn)
 
 class processorReporter(Reporter):
@@ -236,13 +231,12 @@ class processorReporter(Reporter):
 		sendTime = self.sendRate
 		while sendTime >= 0:
 			sendTime -= 1
-			cpu_quantity = 0
-			cpu_percent = 0
-			cpu_quantity = cpu_quantity + 1
 			self.cpuDataList.Append(psutil.cpu_percent(self.refreshRate, percpu=False))
 		formatedData = dataFormater(self.cpuDataList.GetList(), self.formatList)
+		#message mount
 		self.message = ("cpu load:" + str(formatedData) + "|" + 
 			messageFormater(formatedData, self.formatList, "proc", self.refreshRate, "%", self.warn, self.crit, self.mini))
+		#state mount
 		self.state = checkStatus(formatedData, self.crit, self.warn)
 
 class networkReporter(Reporter):
@@ -264,27 +258,23 @@ class networkReporter(Reporter):
 			time.sleep(self.refreshRate)
 			tot_after = psutil.network_io_counters()
 			pnic_after = psutil.network_io_counters(pernic=True)
-	
 			#format bytes to string
 			stats_before = pnic_before[self.interface]
 			stats_after = pnic_after[self.interface]
 			bytesSent = toKbps(stats_after.bytes_sent - stats_before.bytes_sent)
 			bytesReceived = toKbps(stats_after.bytes_recv - stats_before.bytes_recv)
-			
 			#store on a circular list
 			self.sentDataList.Append(bytesSent)
 			self.receivedDataList.Append(bytesReceived)
-		
 		formatedSentData = dataFormater(self.sentDataList.GetList(), self.formatList)
 		formatedReceivedData = dataFormater(self.receivedDataList.GetList(), self.formatList)
-		
+		#message mount
 		self.message = ("sent traffic: " + str(formatedSentData) + " received traffic: " + str(formatedReceivedData) + " |" +
 			messageFormater(formatedReceivedData, self.formatList, "recv", self.refreshRate, "kbps", self.warn, self.crit, self.mini) +
 			messageFormater(formatedSentData, self.formatList, "sent", self.refreshRate, "kbps", self.warn, self.crit, self.mini))
-		
+		#state mount
 		sentState = int(checkStatus(formatedSentData, self.crit, self.warn))
 		recvState = int(checkStatus(formatedReceivedData, self.crit, self.warn))
-		
 		if sentState > recvState:
 			self.state = str(sentState)
 		else:
@@ -331,11 +321,8 @@ def parse_args():
 
 def main_loop(args):
 	'''main loop to call all the reporters'''
-	
 	global DEBUGMODE
 	global HOSTNAME
-	
-	#temporary parameters definition
 	threadsList = []
 	
 	#args set
@@ -351,34 +338,30 @@ def main_loop(args):
 	timeLapseSize = (max(formatList)/refreshRate)
 	#ajust each time interval according to the new time resolution
 	formatList = [x/refreshRate for x in formatList]
-	
+
 	#here we should have the main call to the reporter threads
 	#networkReporter thread
 	current = networkReporter(refreshRate, sendRate, destination, formatList, timeLapseSize, interface)
 	threadsList.append(current)
-	
 	#processorReporter thread
 	current = processorReporter(refreshRate, sendRate, destination, formatList, timeLapseSize)
 	threadsList.append(current)
-	
 	#memoryReporter thread
 	current = memoryReporter(refreshRate, sendRate, destination, formatList, timeLapseSize)
 	threadsList.append(current)
-	
 	#processesAnalyzer thread
 	current = processesAnalyzer(refreshRate)
 	#threadsList.append(current)
-	
+
 	#start every thread
 	for reporterThread in threadsList:
 		reporterThread.start()
-	
+
 	raw_input("Press Enter to kill all threads...\n")
 
 	#send kill sign to all threads
 	for reporterThread in threadsList:
 		reporterThread.kill()
-	
 	#wait for each thread to finish
 	for reporterThread in threadsList:
 		reporterThread.join()
@@ -387,10 +370,8 @@ def main():
     try:
 		# args
 		args = parse_args()
-		
 		main_loop(args)
     except (KeyboardInterrupt, SystemExit):
         pass
-
 if __name__ == '__main__':
     main()
