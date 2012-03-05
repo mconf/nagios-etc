@@ -202,7 +202,7 @@ class Reporter(Thread):
 			if not (self.service == None or self.destination == None or self.state == None or self.message == None):
 				self.sendReport()
 			elif DEBUGMODE:
-				print "send data ERROR:" + self.service + self.destination + self.state + self.message
+				print "-> send data ERROR: " + self.service + self.destination + self.state + self.message
 
 class memoryReporter(Reporter):
 	'''reporter class to collect and report memory data'''
@@ -278,8 +278,7 @@ class networkReporter(Reporter):
 		formatedSentData = dataFormater(self.sentDataList.GetList(), self.formatList)
 		formatedReceivedData = dataFormater(self.receivedDataList.GetList(), self.formatList)
 		
-		self.message = (" Received data " + str(formatedReceivedData) + " Sent data " + str(formatedSentData) +
-			"sent traffic:" + str(formatedSentData) + " received traffic:" + str(formatedReceivedData) + "|" +
+		self.message = ("sent traffic: " + str(formatedSentData) + " received traffic: " + str(formatedReceivedData) + " |" +
 			messageFormater(formatedReceivedData, self.formatList, "recv", self.refreshRate, "kbps", self.warn, self.crit, self.mini) +
 			messageFormater(formatedSentData, self.formatList, "sent", self.refreshRate, "kbps", self.warn, self.crit, self.mini))
 		
