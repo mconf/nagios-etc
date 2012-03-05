@@ -157,6 +157,8 @@ class Reporter(Thread):
 		self.warn = 70
 		self.crit = 90
 		self.mini = 0
+		self.state = NAGIOS_UNKNOWN
+		self.service = "Unknown Service"
 	
 	def kill(self):
 		#send kill sign to terminate the thread in the next data collection loop
@@ -164,12 +166,11 @@ class Reporter(Thread):
 		
 	def threadLoop(self):
 		#nothing on the base class 
-		#Should be implemented by each reporter service
+		#Should be implemented by each reporter service and set the self.state and self.message variables
 		return
 
 	def sendReport(self):
 		'''send report to nagios server'''
-
 		#mount data 
 		send_nsca_dir = "/usr/local/nagios/bin"
 		send_nsca_cfg_dir = "/usr/local/nagios/etc"
@@ -285,7 +286,6 @@ class networkReporter(Reporter):
 		sentState = int(checkStatus(formatedSentData, self.crit, self.warn))
 		recvState = int(checkStatus(formatedReceivedData, self.crit, self.warn))
 		
-		self.state = NAGIOS_UNKNOWN
 		if sentState > recvState:
 			self.state = str(sentState)
 		else:
