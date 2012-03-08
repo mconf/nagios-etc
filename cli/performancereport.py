@@ -2,6 +2,7 @@ import sys
 import os
 if os.name != 'posix':
     sys.exit('platform not supported')
+os.environ['PATH'] += ':/usr/bin:/sbin:/bin'
 import atexit
 import time
 import commands
