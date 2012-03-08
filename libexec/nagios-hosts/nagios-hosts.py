@@ -80,8 +80,9 @@ def add(server_type, host, salt=''):
         
     nc = get_nagios_data()
     if nc.get_host(ip) != None:
-        print "Host is already there"
-        return
+        print "Host is already there, so it will deleted before continue"
+        remove_host(ip)
+        nc = get_nagios_data()
  
     #host_name = "%s %s" % (server_type, ip)
     host_name = ip
