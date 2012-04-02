@@ -69,9 +69,9 @@ def assign2Dict(xml):
 def joinURL(meetingID, username, PW, SALT, URL):
     url_join = URL + "api/join?"
 
-    parameters = {'meetingID' : meetingID,
-                  'fullName' : username,
-                  'password' : PW,
+    parameters = {'meetingID' : safe_str(meetingID),
+                  'fullName' : safe_str(username),
+                  'password' : safe_str(PW),
                   }
 
     parameters = urllib.urlencode(parameters)
@@ -94,19 +94,19 @@ def joinURL(meetingID, username, PW, SALT, URL):
 def createMeetingURL(name, meetingID, attendeePW, moderatorPW, welcome, logoutURL, SALT, URL):
     url_create = URL + "api/create?"
     voiceBridge = 70000 + random.randint(0, 9999);
-    parameters = {'name': name,
-                  'meetingID' : meetingID,
-                  'attendeePW' : attendeePW,
-                  'moderatorPW' : moderatorPW,
-                  'voiceBridge' : voiceBridge,
-                  'logoutURL' : logoutURL,
+    parameters = {'name': safe_str(name),
+                  'meetingID' : safe_str(meetingID),
+                  'attendeePW' : safe_str(attendeePW),
+                  'moderatorPW' : safe_str(moderatorPW),
+                  'voiceBridge' : safe_str(voiceBridge),
+                  'logoutURL' : safe_str(logoutURL),
                   }
 
     parameters = urllib.urlencode(parameters)
 
     welcome_parameters = ''
     if (welcome and welcome != ''):
-        welcome_parameters = {'welcome': welcome.strip()}
+        welcome_parameters = {'welcome': safe_str(welcome.strip())}
         welcome_parameters = urllib.urlencode(welcome_parameters)
 
     params = parameters + welcome_parameters
@@ -125,7 +125,7 @@ def createMeetingURL(name, meetingID, attendeePW, moderatorPW, welcome, logoutUR
 def isMeetingRunningURL( meetingID, URL, SALT ):
     base_url = URL + "api/isMeetingRunning?"
 
-    parameters = {'meetingID' : meetingID,}
+    parameters = {'meetingID' : safe_str(meetingID)}
     parameters = urllib.urlencode(parameters)
 
     return base_url + parameters + '&checksum=' + hashlib.sha1("isMeetingRunning" + parameters + SALT).hexdigest()
@@ -144,8 +144,8 @@ def isMeetingRunningURL( meetingID, URL, SALT ):
 def getMeetingInfoURL( meetingID, modPW, URL, SALT ):
     base_url = URL + "api/getMeetingInfo?"
 
-    parameters = {'meetingID' : meetingID,
-                  'password' : modPW,
+    parameters = {'meetingID' : safe_str(meetingID),
+                  'password' : safe_str(modPW),
                   }
     parameters = urllib.urlencode(parameters)
 
@@ -163,7 +163,7 @@ def getMeetingInfoURL( meetingID, modPW, URL, SALT ):
 def getMeetingsURL(URL, SALT):
     base_url = URL + "api/getMeetings?"
 
-    parameters = {'random' : (random.random() * 1000 ),}
+    parameters = {'random' : safe_str((random.random() * 1000 ))}
     parameters = urllib.urlencode(parameters)
 
     return base_url + parameters + '&checksum=' + hashlib.sha1("getMeetings" + parameters + SALT).hexdigest()
@@ -182,8 +182,8 @@ def getMeetingsURL(URL, SALT):
 def endMeetingURL( meetingID, modPW, URL, SALT ):
     base_url = URL + "api/end?"
 
-    parameters = {'meetingID' : meetingID,
-                  'password' : modPW,
+    parameters = {'meetingID' : safe_str(meetingID),
+                  'password' : safe_str(modPW),
                   }
     parameters = urllib.urlencode(parameters)
 
@@ -242,6 +242,7 @@ def getMeetingInfo( meetingID, modPW, URL, SALT ):
     getMeetingInfo_url = getMeetingInfoURL(meetingID, modPW, URL, SALT )
     xml = bbb_wrap_load_file( getMeetingInfo_url )
 
+    attendeeKey = 0
     if(xml):
         mapping = {}
         response = xml.firstChild
@@ -261,7 +262,9 @@ def getMeetingInfo( meetingID, modPW, URL, SALT ):
                             else:
                                 attendee[atnd.tagName] = None
                         #Updates the attendees dictionary with the attendee we just parsed
-                        attendees[ attendee["userID"] ] = attendee
+                        attendees[safe_str(attendeeKey)] = attendee
+                        attendeeKey += 1
+                        #attendees[attendee["userID"]] = attendee # can't use unicode in dict keys...
 
                     #Once completed parsing the attendees we add that dictionary to mapping
                     mapping[child.tagName] = attendees
@@ -298,6 +301,7 @@ def getMeetings( URL, SALT ):
     getMeetings_url = getMeetingsURL( URL, SALT )
     xml = bbb_wrap_load_file( getMeetings_url )
 
+    meetingKey = 0
     if(xml):
         mapping = {}
         response = xml.firstChild
@@ -320,7 +324,9 @@ def getMeetings( URL, SALT ):
                             else:
                                 meeting[mtg.tagName] = None
                         #Updates the meetings dictionary with the meeting we just parsed
-                        meetings[ meeting["meetingID"] ] = meeting
+                        meetings[safe_str(meetingKey)] = meeting
+                        meetingKey += 1
+                        #meetings[ meeting["meetingID"] ] = meeting # can't use unicode in dict keys...
                     #Once completed parsing the meetings we add that dictionary to mapping
                     mapping[child.tagName] = meetings
 
@@ -376,3 +382,10 @@ def isMeetingRunning( meetingID, URL, SALT ):
 
     #if unable to reach the server
     return None
+
+def safe_str(obj):
+    """ return the byte string representation of obj """
+    try:
+        return str(obj)
+    except UnicodeEncodeError:
+        return unicode(obj).encode('UTF-8')
