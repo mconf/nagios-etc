@@ -1,4 +1,4 @@
 # Minute   Hour   Day of Month       Month          Day of Week        Command
 
 # (0-59)  (0-23)     (1-31)    (1-12 or Jan-Dec)  (0-6 or Sun-Sat)
-  @reboot                                                              python ~/nagios-etc/cli/performancereport.py
+@reboot ~/nagios-etc/cli/performancereport.py --server <NAGIOS_SERVER> --hostname <HOST_NAME> > /dev/null 2>&1 &
