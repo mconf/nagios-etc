@@ -29,53 +29,17 @@ def trunc(f, n):
     slen = len('%.*f' % (n, f))
     return str(f)[:slen]
 
-def gcd(a, b):
-    '''greatest commom divisor for two integers'''
-    while b != 0:
-        a, b = b, a%b
-    return abs(a)
-
-def recgcd(numberList):
-    '''recursive call of greatest commom divisor for a list of integers'''
-    last = numberList[0]
-    for number in numberList:
-        last = gcd(last, number)
-    return last
-
-def messageFormater(data_list, format_list, service_name, format_multiplier, unit, warning, critical, minimum, maximum=None):
-    '''format a message given the data, service_name and parameters desired'''
-    message = ""
-    for format, data in zip(format_list, data_list) :
-        message += service_name + str(format * format_multiplier) + "=" + "%.2f" % (data) \
-            + unit + ";" + str(warning) + ";" + str(critical) + ";"  + str(minimum) \
-            + ";" + (str(maximum) if maximum != None else "") + " "
-    return message
-    #example:
-    #load1=0.040;5.000;10.000;0; load5=0.010;4.000;6.000;0; load15=0.000;3.000;4.000;0;
-    
-def dataFormater(data_list, formats):
-    '''receives a data list and a format list returning the medium value until de Nth position of the data list for each format item'''
-    return [data_list.average(n) for n in formats]
-    
-def checkStatus(level_list, critical, warning):
-    worst_case = max(level_list)
-    if worst_case >= critical:
-        return NAGIOS_CRITICAL
-    elif worst_case >= warning:
-        return NAGIOS_WARNING
-    else:
-        return NAGIOS_OK
-
 class CircularList:
     def __init__(self, size):
-        self.list = [0] * size
+        self.list = []
+        self.max_size = size
         
     def append(self, data):
-        self.list = [data] + self.list[:-1]
+        self.list = [data] + self.list[:self.max_size - 1]
         
-    def average(self, n):
-        return sum(self.list[:n])/n
-
+    def avg(self):
+        return sum(self.list) / float(len(self.list))
+    
 class processesAnalyzer(Thread):
     '''collect cpu process data and print them to the stdout'''
     def __init__ (self,refreshRate):
@@ -179,56 +143,70 @@ class Reporter(Thread):
             #call method that actually do what the threads needs to do
             self.threadLoop()
 
+    def formatMessage(self, data, label, unit):
+        list_avg = data.avg()
+        list_max = max(data.list)
+        list_min = min(data.list)
+        if self.maximum == None:
+            format = "%s_%%s=%%.2f%s;%d;%d;%d; " % (label, unit.replace("%", "%%"), self.warning, self.critical, self.minimum)
+        else:
+            format = "%s_%%s=%%.2f%s;%d;%d;%d;%d " % (label, unit.replace("%", "%%"), self.warning, self.critical, self.minimum, self.maximum)
+        return format % ("avg", list_avg) + format % ("max", list_max) + format % ("min", list_min)
+    
+    def checkStatus(self, data):
+        if data >= self.critical:
+            return NAGIOS_CRITICAL
+        elif data >= self.warning:
+            return NAGIOS_WARNING
+        else:
+            return NAGIOS_OK
+        
 class MemoryReporter(Reporter):
     '''reporter class to collect and report memory data'''
     def __init__(self, config):
         Reporter.__init__(self, config)
         self.service = "Memory Report"
-        self.memDataList = CircularList(self.config.num_samples)
+        self.list = CircularList(self.config.send_rate)
         self.maximum = psutil.phymem_usage().total / (1024 * 1024)
+        self.warning = (self.config.memory_warning * self.maximum) / 100
+        self.critical = (self.config.memory_critical * self.maximum) / 100
         
     def threadLoop(self):
-        time.sleep(self.config.refresh_rate)
-        #self.memDataList.append(psutil.phymem_usage().used / (1024 * 1024))
-        self.memDataList.append((psutil.phymem_usage().percent * self.maximum) / 100)
-        
+        time.sleep(1)
+        #self.list.append(psutil.phymem_usage().used / (1024 * 1024))
+        self.list.append((psutil.phymem_usage().percent * self.maximum) / 100)
+    
     def data(self):
-        formattedData = dataFormater(self.memDataList, self.config.data_intervals)
         # message mount
-        warning = (self.config.memory_warning * self.maximum) / 100
-        critical = (self.config.memory_critical * self.maximum) / 100
-        message = "Memory usage: %dMB of %dMB (%d%%)" % (formattedData[0], \
-            self.maximum, (formattedData[0] * 100) / self.maximum) \
-            + "|" + messageFormater(formattedData, self.config.data_intervals, \
-                    "muse", self.config.refresh_rate, "MB", warning, critical, \
-                    self.minimum, self.maximum)
+        list_avg = self.list.avg()
+        message = "Memory usage: %dMB of %dMB (%d%%)" % (list_avg, \
+            self.maximum, (list_avg * 100) / self.maximum) \
+            + "|" + self.formatMessage(self.list, "mem", "MB")
         # state mount
-        state = checkStatus(formattedData, critical, warning)
+        state = self.checkStatus(list_avg)
         return message, state
 
 class DiskReporter(Reporter):
     def __init__(self, config):
         Reporter.__init__(self, config)
         self.service = "Disk Report"
-        self.list = CircularList(self.config.num_samples)
+        self.list = CircularList(self.config.send_rate)
         self.maximum = psutil.disk_usage('/').total / (1024 * 1024 * 1024)
+        self.warning = (self.config.disk_warning * self.maximum) / 100
+        self.critical = (self.config.disk_critical * self.maximum) / 100
     
     def threadLoop(self):
-        time.sleep(self.config.refresh_rate)
+        time.sleep(1)
         self.list.append((psutil.disk_usage('/').percent * self.maximum) / 100)
         
     def data(self):
-        formattedData = dataFormater(self.list, self.config.data_intervals)
+        list_avg = self.list.avg()
         # message mount
-        warning = (self.config.disk_warning * self.maximum) / 100
-        critical = (self.config.disk_critical * self.maximum) / 100
-        message = "Disk usage: %dGB of %dGB (%d%%)" % (formattedData[0], \
-            self.maximum, (formattedData[0] * 100) / self.maximum) \
-            + "|" + messageFormater(formattedData, self.config.data_intervals, \
-                    "disk", self.config.refresh_rate, "GB", warning, critical, \
-                    self.minimum, self.maximum)
+        message = "Disk usage: %dGB of %dGB (%d%%)" % (list_avg, \
+            self.maximum, (list_avg * 100) / self.maximum) \
+            + "|" + self.formatMessage(self.list, "disk", "GB")
         # state mount
-        state = checkStatus(formattedData, critical, warning)
+        state = self.checkStatus(list_avg)
         return message, state
 
 class ProcessorReporter(Reporter):
@@ -236,22 +214,21 @@ class ProcessorReporter(Reporter):
     def __init__ (self,config):
         Reporter.__init__(self, config)
         self.service = "Processor Report"
-        self.cpuDataList = CircularList(self.config.num_samples)
+        self.list = CircularList(self.config.send_rate)
+        self.maximum = 100
+        self.warning = self.config.cpu_warning
+        self.critical = self.config.cpu_critical
         
     def threadLoop(self):
-        self.cpuDataList.append(psutil.cpu_percent(self.config.refresh_rate, percpu=False))
+        self.list.append(psutil.cpu_percent(1, percpu=False))
     
     def data(self):
-        formattedData = dataFormater(self.cpuDataList, self.config.data_intervals)
+        list_avg = self.list.avg()
         # message mount
-        message = ("CPU usage: %.1f%%" % formattedData[0] 
-            + "|" + messageFormater(formattedData, self.config.data_intervals, \
-                    "proc", self.config.refresh_rate, "%", \
-                    self.config.cpu_warning, self.config.cpu_critical, \
-                    self.minimum))
+        message = "CPU usage: %.1f%%" % (list_avg) \
+            + "|" + self.formatMessage(self.list, "cpu", "%")
         # state mount
-        state = checkStatus(formattedData, self.config.cpu_critical, \
-            self.config.cpu_warning)
+        state = self.checkStatus(list_avg)
         return message, state
 
 class NetworkReporter(Reporter):
@@ -259,42 +236,40 @@ class NetworkReporter(Reporter):
     def __init__(self, config):
         Reporter.__init__(self, config)
         self.service = "Network Report"
-        self.sent = CircularList(self.config.num_samples)
-        self.recv = CircularList(self.config.num_samples)
+        self.sent = CircularList(self.config.send_rate)
+        self.recv = CircularList(self.config.send_rate)
+        self.warning = self.config.network_warning
+        self.critical = self.config.network_critical
         
     def threadLoop(self):
         #timestamp_before = int(round(time.time() * 1000))
-        #collect data
-        #tot_before = psutil.network_io_counters()
         pnic_before = psutil.network_io_counters(pernic=True)
         stats_before = pnic_before[self.config.network_interface]
 
         while not self.terminate:
-            time.sleep(self.config.refresh_rate)
+            time.sleep(1)
 
-            #tot_after = psutil.network_io_counters()
             pnic_after = psutil.network_io_counters(pernic=True)
             stats_after = pnic_after[self.config.network_interface]
 
             # format bytes to string
-            bytesSent = toKbps(stats_after.bytes_sent - stats_before.bytes_sent) / self.config.refresh_rate
-            bytesReceived = toKbps(stats_after.bytes_recv - stats_before.bytes_recv) / self.config.refresh_rate
+            bytesSent = toKbps(stats_after.bytes_sent - stats_before.bytes_sent) / 1
+            bytesReceived = toKbps(stats_after.bytes_recv - stats_before.bytes_recv) / 1
             # store on a circular list
             self.sent.append(bytesSent)
             self.recv.append(bytesReceived)
             stats_before = stats_after
             
     def data(self):
-        formatedSentData = dataFormater(self.sent, self.config.data_intervals)
-        formatedReceivedData = dataFormater(self.recv, self.config.data_intervals)
+        list_sent_avg = self.sent.avg()
+        list_recv_avg = self.recv.avg()
         # message mount
-        message = ("Network bandwidth used: up %.1fkbps - down %.1fkbps" \
-            % (formatedSentData[0], formatedReceivedData[0]) + " |" \
-            + messageFormater(formatedReceivedData, self.config.data_intervals, "recv", self.config.refresh_rate, "kbps", self.config.network_warning, self.config.network_critical, self.minimum) \
-            + messageFormater(formatedSentData, self.config.data_intervals, "sent", self.config.refresh_rate, "kbps", self.config.network_warning, self.config.network_critical, self.minimum))
+        message = "Network bandwidth used: up %.1fkbps - down %.1fkbps" \
+            % (list_sent_avg, list_recv_avg) + " |" \
+            + self.formatMessage(self.sent, "sent", "KBps") \
+            + self.formatMessage(self.recv, "recv", "KBps")
         # state mount
-        state = max(int(checkStatus(formatedSentData, self.config.network_critical, self.config.network_warning)),
-            int(checkStatus(formatedReceivedData, self.config.network_critical, self.config.network_warning)))
+        state = max(int(self.checkStatus(self.sent)), int(self.checkStatus(self.recv)))
         return message, state
 
 def parse_args():
@@ -311,12 +286,6 @@ def parse_args():
         dest = "hostname",
         default = "`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`",
         metavar = "<hostname>")
-    parser.add_argument("--intervals",
-        required = False,
-        help = "intervals list that the data should be collected as average. Example: 3,15,60",
-        dest = "data_intervals",
-        default = "3,15,60",
-        metavar = "<data_intervals>")
     parser.add_argument("--send_rate",
         required = False,
         help = "set the interval in which the script will send data to the Nagios server, in seconds",
@@ -366,13 +335,6 @@ class Configuration:
         self.hostname = args.hostname
         self.nagios_server = args.nagios_server
         self.send_rate = int(args.send_rate)
-        self.data_intervals = [int(x) for x in args.data_intervals.split(',')]
-        # calculate new refresh rate with de greatest commom divisor
-        self.refresh_rate = recgcd(self.data_intervals + [self.send_rate])
-        # ajust each time interval according to the new time resolution
-        self.data_intervals = [x/self.refresh_rate for x in self.data_intervals]
-        # set circular list size according to maximum data resolution
-        self.num_samples = max(self.data_intervals)
         self.network_warning = int(args.network_warning)
         self.network_critical = int(args.network_critical)
         self.cpu_warning = int(args.cpu_warning)
