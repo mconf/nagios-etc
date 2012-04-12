@@ -3,7 +3,7 @@
 function print_usage
 {
 	echo "Usage:"
-	echo "    ./serverup <destination> <bigbluebutton|freeswitch>"
+	echo "    $0 <destination> <bigbluebutton|freeswitch>"
 	exit 1
 }
 
