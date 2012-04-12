@@ -67,6 +67,9 @@ def get_status(results, limits):
 # Returns the output message and performance data
 # 'limits' is in the format [[0,0,30,30],[0,25,10,10]]
 def get_output_message(results, limits):
+    # removes the zeros from the limits list because zero disables the limit in this implementation
+    limits = [[limit if limit != "0" else "" for limit in limit_list] for limit_list in limits]
+
     msg =  "Meetings: " + str(results.meetingCount)
     msg += ", Users: " + str(results.userCount)
     msg += ", User with audio: " + str(results.audioCount)
