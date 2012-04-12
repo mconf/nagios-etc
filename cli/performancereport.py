@@ -24,6 +24,9 @@ NAGIOS_UNKNOWN = 3
 def toKbps(n):
     return float(n >> 7)
     
+def byte_to_bit(n):
+    return n << 3
+
 def trunc(f, n):
     '''Truncates/pads a float f to n decimal places without rounding'''
     slen = len('%.*f' % (n, f))
@@ -238,36 +241,46 @@ class NetworkReporter(Reporter):
         self.service = "Network Report"
         self.sent = CircularList(self.config.send_rate)
         self.recv = CircularList(self.config.send_rate)
-        self.warning = self.config.network_warning
-        self.critical = self.config.network_critical
+        self.warning = self.config.network_warning * 1000 # in Mbit/s
+        self.critical = self.config.network_critical * 1000 # in Mbit/s
         
     def threadLoop(self):
-        #timestamp_before = int(round(time.time() * 1000))
         pnic_before = psutil.network_io_counters(pernic=True)
         stats_before = pnic_before[self.config.network_interface]
-
+ 
         while not self.terminate:
             time.sleep(1)
-
+            
             pnic_after = psutil.network_io_counters(pernic=True)
             stats_after = pnic_after[self.config.network_interface]
 
             # format bytes to string
-            bytesSent = toKbps(stats_after.bytes_sent - stats_before.bytes_sent) / 1
-            bytesReceived = toKbps(stats_after.bytes_recv - stats_before.bytes_recv) / 1
+            bytesSent = byte_to_bit(stats_after.bytes_sent - stats_before.bytes_sent) #toKbps(stats_after.bytes_sent - stats_before.bytes_sent) / 1
+            bytesReceived = byte_to_bit(stats_after.bytes_recv - stats_before.bytes_recv) #toKbps(stats_after.bytes_recv - stats_before.bytes_recv) / 1
+
             # store on a circular list
             self.sent.append(bytesSent)
             self.recv.append(bytesReceived)
             stats_before = stats_after
             
+    def normalize(self, value):
+        if value >= 1000000000:
+            return (value / 1000000000, "Gbit/s")
+        elif value >= 1000000:
+            return (value / 1000000, "Mbit/s")
+        elif value >= 1000:
+            return (value / 1000, "kbit/s")
+        else:
+            return (value, "bit/s")
+
     def data(self):
-        list_sent_avg = self.sent.avg()
-        list_recv_avg = self.recv.avg()
+        sent_avg, sent_unit = self.normalize(self.sent.avg())
+        recv_avg, recv_unit = self.normalize(self.recv.avg())
         # message mount
-        message = "Network bandwidth used: up %.1fkbps - down %.1fkbps" \
-            % (list_sent_avg, list_recv_avg) + " |" \
-            + self.formatMessage(self.sent, "sent", "KBps") \
-            + self.formatMessage(self.recv, "recv", "KBps")
+        message = "Network bandwidth used: up %.1f%s - down %.1f%s" \
+            % (sent_avg, sent_unit, recv_avg, recv_unit) + " |" \
+            + self.formatMessage(self.sent, "sent", "") \
+            + self.formatMessage(self.recv, "recv", "")
         # state mount
         state = max(int(self.checkStatus(self.sent)), int(self.checkStatus(self.recv)))
         return message, state
