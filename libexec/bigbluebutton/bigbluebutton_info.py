@@ -53,14 +53,13 @@ def fetch(host, port, salt):
             # only if the meeting is running
             if re.match("true", meeting["running"], re.IGNORECASE):
                 result.addMeeting()
-                meeting_info = bbb_api.getMeetingInfo(meeting["meetingID"], meeting["moderatorPW"], args.url, args.salt)
-                result.addToUsers(int(meeting_info["participantCount"]))
-
-                if "listenerCount" in meeting_info:
-                    result.addToAudioUsers(int(meeting_info["listenerCount"]))
-
-                for uid, user in meeting_info["attendees"].iteritems():
-                    if "hasVideoStream" in user and re.match("true", user["hasVideoStream"], re.IGNORECASE):
-                        result.addVideoUser()
+                if "listenerCount" in meeting:
+                    result.addToAudioUsers(int(meeting["listenerCount"]))
+                if "participantCount" in meeting:
+                    result.addToUsers(int(meeting["participantCount"]))
+                if "listenerCount" in meeting:
+                    result.addToAudioUsers(int(meeting["listenerCount"]))
+                if "videoCount" in meeting:
+                    result.addToVideoUsers(int(meeting["videoCount"]))
 
     return result
