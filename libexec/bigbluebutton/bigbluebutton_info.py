@@ -18,8 +18,8 @@ class BigBlueButtonInfo:
         self.userCount += count
     def addToAudioUsers(self, count):
         self.audioCount += count
-    def addVideoUser(self):
-        self.videoCount += 1
+    def addToVideoUsers(self, count):
+        self.videoCount += count
     def limits(self):
         return [self.meetingCount, self.userCount, self.audioCount, self.videoCount]
 
@@ -53,8 +53,6 @@ def fetch(host, port, salt):
             # only if the meeting is running
             if re.match("true", meeting["running"], re.IGNORECASE):
                 result.addMeeting()
-                if "listenerCount" in meeting:
-                    result.addToAudioUsers(int(meeting["listenerCount"]))
                 if "participantCount" in meeting:
                     result.addToUsers(int(meeting["participantCount"]))
                 if "listenerCount" in meeting:
