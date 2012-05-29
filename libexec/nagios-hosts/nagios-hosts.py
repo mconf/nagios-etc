@@ -94,7 +94,7 @@ def add(server_type, host, salt=''):
     if server_type == 'bigbluebutton':
         new_host['_bbb_url'] = host
         new_host['_bbb_salt'] = salt
-        new_host['notes'] = '$_HOSTBBB_URL$ $_HOSTBBB_SALT$'
+        new_host['_lb_disabled'] = 1
     nc.data['all_host'].append(new_host)
 
     hostgroup = nc.get_hostgroup(hostgroup_name)
@@ -141,7 +141,7 @@ def remove_group(nc, hostgroup_name):
                     remove_group(nc, hostgroup['hostgroup_name'])
     
 def add_member(members, new_member):
-    if len(members) == 0:
+    if members == None or len(members) == 0:
         return new_member
     else:
         members = members.split(',')
