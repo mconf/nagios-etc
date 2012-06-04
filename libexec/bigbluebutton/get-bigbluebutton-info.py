@@ -102,7 +102,7 @@ def main():
         url = urlparse(args.host)
         results = bigbluebutton_info.fetch(url.hostname, url.port, args.salt)
     except Exception as e:
-        sys.stdout.write("Error: " + str(e))
+        sys.stdout.write(str(e))
         sys.exit((UNKNOWN))
 
     # output

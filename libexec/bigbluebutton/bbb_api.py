@@ -303,6 +303,9 @@ def getMeetings( URL, SALT ):
 
     meetingKey = 0
     if(xml):
+        mapping = assign2Dict(xml)
+        if mapping != None and mapping["returncode"] != "SUCCESS":
+            raise Exception("%s: %s" % (mapping["messageKey"], mapping["message"]))
         mapping = {}
         response = xml.firstChild
         for child in response.childNodes:
@@ -338,7 +341,7 @@ def getMeetings( URL, SALT ):
         return mapping
 
     #if unable to reach the server
-    return None
+    raise Exception("Error: the server is unreachable")
 
 #------------------------------------------------End Meeting------------------------------------
 #
