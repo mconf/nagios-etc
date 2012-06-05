@@ -222,6 +222,7 @@ class ProcessorReporter(Reporter):
         self.maximum = 100
         self.warning = self.config.cpu_warning
         self.critical = self.config.cpu_critical
+        self.processor = commands.getoutput("cat /proc/cpuinfo | grep 'model name' | head -n 1 | sed 's:.*\: *\(.*\):\\1:g' | sed 's/  */\ /g'")
         
     def threadLoop(self):
         self.list.append(psutil.cpu_percent(1, percpu=False))
@@ -229,7 +230,7 @@ class ProcessorReporter(Reporter):
     def data(self):
         list_avg = self.list.avg()
         # message mount
-        message = "CPU usage: %.1f%%" % (list_avg) \
+        message = "CPU usage: %.1f%% Model: %s" % (list_avg, self.processor) \
             + "|" + self.formatMessage(self.list, "cpu", "%")
         # state mount
         state = self.checkStatus(list_avg)
@@ -247,6 +248,17 @@ class NetworkReporter(Reporter):
         
     def threadLoop(self):
         pnic_before = psutil.network_io_counters(pernic=True)
+        
+        if not pnic_before.has_key(self.config.network_interface):
+            print "Couldn't find the network interface %s" % (self.config.network_interface)
+            self.config.network_interface = None
+            for i in pnic_before.keys():
+                if i != "lo":
+                    self.config.network_interface = i
+                    break
+            if self.config.network_interface == None:
+                return
+            print "Using %s instead" % (self.config.network_interface)
         stats_before = pnic_before[self.config.network_interface]
  
         while not self.terminate:
