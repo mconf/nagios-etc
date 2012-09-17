@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "[`date +\"%Y/%m/%d %T\"`]"
+
 SERVICE_STATE=$1
 SERVICE_STATE_TYPE=$2
 SERVICE_ATTEMPT=$3
@@ -12,6 +14,7 @@ echo "$USER_PATH"
 if [ $SERVICE_STATE == "OK" ]
 then
 	echo "State = OK, returning..."
+        /usr/bin/python $USER_PATH/nagios-hosts/nagios-hosts.py reload
 	exit 0
 fi
 
@@ -29,8 +32,11 @@ else
 	PARAMS="$MCONF_TYPE $MCONF_HOST"
 fi
 
-/usr/bin/python $USER_PATH/nagios-hosts/nagios-hosts.py add $PARAMS &> /home/nagios/output
+/usr/bin/python $USER_PATH/nagios-hosts/nagios-hosts.py add $PARAMS
 
 now=`date +%s`
 commandfile='/usr/local/nagios/var/rw/nagios.cmd'
-/usr/bin/printf "[%lu] PROCESS_SERVICE_CHECK_RESULT;localhost;Server UP;0;OK- new server handled\n" $now > $commandfile
+message='[%lu] PROCESS_SERVICE_CHECK_RESULT;localhost;Server UP;0;OK- new server handled'
+echo $message
+/usr/bin/printf "$message\n" $now > $commandfile
+
