@@ -1,0 +1,42 @@
+#!/bin/bash
+
+echo "[`date +\"%Y/%m/%d %T\"`]"
+
+SERVICE_STATE=$1
+SERVICE_STATE_TYPE=$2
+SERVICE_ATTEMPT=$3
+USER_PATH=$4
+echo "$SERVICE_STATE"
+echo "$SERVICE_STATE_TYPE"
+echo "$SERVICE_ATTEMPT"
+echo "$USER_PATH"
+
+if [ $SERVICE_STATE == "OK" ]
+then
+    echo "State = OK, returning..."
+    /usr/bin/python $USER_PATH/mconf-hosts/mconf-hosts.py reload
+    exit 0
+fi
+
+MCONF_TYPE=$5
+MCONF_HOST=$6
+echo "type: $MCONF_TYPE"
+echo "host: $MCONF_HOST"
+
+if [ "$MCONF_TYPE" == "bigbluebutton" ] || [ "$MCONF_TYPE" == "mconf-live" ]
+then
+    MCONF_SALT=$7
+    echo "salt: $MCONF_SALT"
+    PARAMS="$MCONF_HOST $MCONF_SALT"
+else
+    PARAMS="$MCONF_HOST"
+fi
+
+/usr/bin/python $USER_PATH/mconf-hosts/mconf-hosts.py add $PARAMS
+
+now=`date +%s`
+commandfile="/usr/local/nagios/var/rw/nagios.cmd"
+message="[%lu] PROCESS_SERVICE_CHECK_RESULT;localhost;Server UP;0;OK - Last server handled: $MCONF_HOST"
+echo $message
+/usr/bin/printf "$message\n" $now > $commandfile
+

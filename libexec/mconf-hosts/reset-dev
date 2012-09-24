@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sed -i "s:`pwd`/../../etc:/usr/local/nagios/etc:g" ../../etc/nagios.cfg
