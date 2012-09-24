@@ -4,7 +4,7 @@ function copy {
 	dev_dir="$1"
 	src_dir="$2"
 	dst_dir="$3"
-	for i in `find $dev_dir -type f -name '*' -exec echo {} \; | grep -v '.git'`
+	for i in `find $dev_dir -type f -name '*' -exec echo {} \; | grep -v '.git' | grep -v '*~'`
 	do
 		file_src="$src_dir/$i"
 		file_dst="$dst_dir/$i"
@@ -12,6 +12,7 @@ function copy {
 		if [ -e "$file_src" ]
 		then
 			echo "OK!"
+			mkdir -p $(dirname $file_dst)
 			cp "$file_src" "$file_dst"
 		fi
 	done

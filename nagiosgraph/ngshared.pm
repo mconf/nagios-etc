@@ -90,12 +90,12 @@ use constant {
     COLORSCHEME => 1,
     COLORSATURATION => 0.8,
     COLORVALUE => 0.95,
-    STEPSIZE => 300,
+    STEPSIZE => 5,
     HEARTBEAT => 600,
-    RESOLUTIONS => '600 700 775 797',
-    STEPS => '1 6 24 288',
+    RESOLUTIONS => '864 864 604 584 701',
+    STEPS => '1 24 240 1080 10800',
     XFF => 0.5,
-    PERIODS => 'day week month year',
+    PERIODS => 'hour day week month year',
     FIXED_SCALE_FORMAT => '%7.2lf',
     DEFAULT_FORMAT => '%7.2lf%s',
 };
@@ -414,7 +414,7 @@ sub getparams {
 }
 
 # return two strings: period and expand_period.  each is a comma-delimited
-# list of day, week, month, quarter, year.  first try to get the value from
+# list of hour, day, week, month, quarter, year.  first try to get the value from
 # the parameters.  if that fails, use whatever is defined in config.
 #
 # CGI uses comma-delimited, old configs used space-delimited, so we deal with
@@ -841,11 +841,11 @@ sub readconfig {
     }
 
     # set these only if they have not been specified in the config file
-    foreach my $ii (['timeall', 'day week month'],
+    foreach my $ii (['timeall', 'hour day week month'],
                     ['timehost', 'day'],
                     ['timeservice', 'day'],
                     ['timegroup', 'day'],
-                    ['expand_timeall', 'day week month'],
+                    ['expand_timeall', 'hour day week month'],
                     ['expand_timehost', 'day'],
                     ['expand_timeservice', 'day'],
                     ['expand_timegroup', 'day'],
@@ -2853,8 +2853,8 @@ sub createrrd {
 
     my $rstr = gethsdvalue2('resolution', RESOLUTIONS, $host, $service, $db);
     my @rows = split / /, $rstr;
-    if (scalar @rows != 4) {
-        my $msg = 'wrong number of values for resolution (expecting 4, got '
+    if (scalar @rows != 5) {
+        my $msg = 'wrong number of values for resolution (expecting 5, got '
             . scalar @rows . ')';
         debug(DBCRT, $msg);
         croak($msg);
@@ -2862,8 +2862,8 @@ sub createrrd {
 
     my $sstr = gethsdvalue2('step', STEPS, $host, $service, $db);
     my @steps = split / /, $sstr;
-    if (scalar @steps != 4) {
-        my $msg = 'wrong number of values for step (expecting 4, got '
+    if (scalar @steps != 5) {
+        my $msg = 'wrong number of values for step (expecting 5, got '
             . scalar @steps . ')';
         debug(DBCRT, $msg);
         croak($msg);
