@@ -12,7 +12,7 @@ function copy {
 		if [ -e "$file_src" ]
 		then
 			echo "OK!"
-			#cp "$file_src" "$file_dst"
+			cp "$file_src" "$file_dst"
 		fi
 	done
 }
