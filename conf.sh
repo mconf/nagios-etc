@@ -1,5 +1,22 @@
 #!/bin/bash
 
+function print_usage
+{
+	echo "Usage:"
+	echo "    $0 <backup|deploy>"
+	exit 1
+}
+
+if [ $# -ne 1 ]
+then
+	print_usage
+fi
+
+if [ $1 != "backup" ] && [ $1 != "deploy" ]
+then
+	print_usage
+fi
+
 function copy {
 	dev_dir="$1"
 	src_dir="$2"
@@ -26,7 +43,5 @@ elif [ "$1" == "backup" ]
 then
 	copy "nagios" "/usr/local" "."
 	copy "nagiosgraph" "/etc" "."
-else
-	echo "Invalid option!"
 fi
 

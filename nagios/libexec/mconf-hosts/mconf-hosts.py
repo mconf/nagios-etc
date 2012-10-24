@@ -38,7 +38,6 @@ def print_usage():
     exit(0)
 
 def reload(forced=False):
-    check_hosts();
     last_modified = int(os.path.getmtime(hosts_cfg) * 1000)
 
 #    last_modified_filename = "updatehosts.tmp"
@@ -76,13 +75,16 @@ def add_host(url, salt):
     except:
         pass
 
+    duplicates = []
     if not host:
         hosts = pynag.Model.Host.objects.filter(_bbb_salt=salt)
         if hosts:
             for host in hosts:
                 print "==> Host %s has the same server salt, deleting it" % (host['host_name'])
+                if host.has_key('_duplicates'):
+                    duplicates += host['_duplicates'].split(',')
+                duplicates.append(host['host_name'])
                 host.delete()
-                
             host = None
         
     if not host:
@@ -96,6 +98,12 @@ def add_host(url, salt):
     host['address'] = address
     host['_bbb_salt'] = salt
     host['_bbb_url'] = url
+    if len(duplicates) > 0:
+        # remove from the duplicates the current hostname
+        if hostname in duplicates:
+            duplicates.remove(hostname)
+        # removes duplicates from the list
+        host['_duplicates'] = ','.join(list(set(duplicates)))
 
     print host
     host.set_filename(hosts_cfg)
@@ -192,6 +200,10 @@ def clean():
 
 if __name__ == '__main__':
     pynag.Model.cfg_file = nagios_cfg
+
+    if not os.path.exists(hosts_cfg):
+        print "The text file defining the hosts doesn't exists"
+        exit(1)
 
     if len(sys.argv) == 1:
         print_usage()

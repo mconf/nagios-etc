@@ -6,10 +6,10 @@ SERVICE_STATE=$1
 SERVICE_STATE_TYPE=$2
 SERVICE_ATTEMPT=$3
 USER_PATH=$4
-echo "$SERVICE_STATE"
-echo "$SERVICE_STATE_TYPE"
-echo "$SERVICE_ATTEMPT"
-echo "$USER_PATH"
+echo "service state: $SERVICE_STATE"
+echo "service state type: $SERVICE_STATE_TYPE"
+echo "service attempt: $SERVICE_ATTEMPT"
+echo "user path: $USER_PATH"
 
 if [ $SERVICE_STATE == "OK" ]
 then
@@ -20,8 +20,8 @@ fi
 
 MCONF_TYPE=$5
 MCONF_HOST=$6
-echo "type: $MCONF_TYPE"
-echo "host: $MCONF_HOST"
+echo "mconf type: $MCONF_TYPE"
+echo "mconf host: $MCONF_HOST"
 
 if [ "$MCONF_TYPE" == "bigbluebutton" ] || [ "$MCONF_TYPE" == "mconf-live" ]
 then
