@@ -62,7 +62,12 @@ def reload(forced=False):
 def add_host(url, salt):
     url = url.lower()
     address = urlparse(url).netloc
-    hostname = address.split(':')[0]
+    address_split = address.split(':')
+    if len(address_split) > 1:
+        port = address_split[1]
+    else:
+        port = 80
+    hostname = address_split[0]
     if not (hostname and len(hostname) > 0 and hostname != "localhost"):
         print "==> Invalid hostname!"
         return
@@ -95,9 +100,10 @@ def add_host(url, salt):
 
     host['use'] = 'generic-passive-host'
     host['host_name'] = hostname
-    host['address'] = address
+    host['address'] = hostname
     host['_bbb_salt'] = salt
     host['_bbb_url'] = url
+    host['_bbb_port'] = port
     if len(duplicates) > 0:
         # remove from the duplicates the current hostname
         if hostname in duplicates:

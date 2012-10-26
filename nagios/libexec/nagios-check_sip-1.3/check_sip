@@ -27,6 +27,7 @@
 
 use strict;
 use lib "/usr/lib64/nagios/plugins";
+use lib "/usr/local/nagios/libexec";
 use utils qw($TIMEOUT %ERRORS &print_revision &support);
 use vars qw($PROGNAME);
 use IO::Socket::INET;

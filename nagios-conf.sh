@@ -44,4 +44,4 @@ then
 	copy "nagios" "/usr/local" "."
 	copy "nagiosgraph" "/etc" "."
 fi
-
+sudo chown -R nagios:nagios /usr/local/nagios
