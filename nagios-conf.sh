@@ -39,9 +39,9 @@ if [ "$1" == "deploy" ]
 then
 	copy "nagios" "." "/usr/local"
 	copy "nagiosgraph" "." "/etc"
+	sudo chown -R nagios:nagios /usr/local/nagios
 elif [ "$1" == "backup" ]
 then
 	copy "nagios" "/usr/local" "."
 	copy "nagiosgraph" "/etc" "."
 fi
-sudo chown -R nagios:nagios /usr/local/nagios
