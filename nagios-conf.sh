@@ -39,7 +39,8 @@ if [ "$1" == "deploy" ]
 then
 	copy "nagios" "." "/usr/local"
 	copy "nagiosgraph" "." "/etc"
-	sudo chown -R nagios:nagios /usr/local/nagios
+	# try to not change permissions on nagios directory
+	#sudo chown -R nagios:nagios /usr/local/nagios
 elif [ "$1" == "backup" ]
 then
 	copy "nagios" "/usr/local" "."

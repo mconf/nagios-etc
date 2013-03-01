@@ -262,19 +262,30 @@ sub checkResponse
     #in this case, we want to see if the SIP-server is respoding positively to our request
     # Some SUT respond with 100 Trying - assume everything is OK if we get this
     if  ($response =~ /^SIP.+[12]00/){
-      print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n";
+      #print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n";
+      print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;;;0;\n";
       return 1;
     } 
     elsif ($response =~ /^SIP.+404 Not Found/) { 
-      print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n"; 
+      #print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n"; 
+      print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;;;0;\n";
       return 0 }
-    else { print "Unknown error: $tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n"; return 0; }
+    #else { print "Unknown error: $tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n"; return 0; }
+    else {
+      print "Unknown error: $tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;;;0;\n"; 
+      return 0; 
+    }
   }else{
     #in this case, we accept every response from the server, as long it is SIP
     if  ($response =~ /^SIP./){
-      print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n";
+      #print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n";
+      print "$tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;;;0;\n";
       return 1;
     } 
-    else { print "Unknown error: $tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n"; return 0; }
+#    else { print "Unknown error: $tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;cnt=".$resend_times.";0.5s;1s;0:10; code=".$rcode."\n"; return 0; }
+    else { 
+      print "Unknown error: $tstring, $rtime seconds response time, cnt=".$resend_times."|rtt=".$rtime."s;;;0;\n"; 
+      return 0; 
+    }
   }
 }
